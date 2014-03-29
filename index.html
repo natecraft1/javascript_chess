@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>		
+<style>
+	table {
+		border-spacing: 0;
+		margin: 0 auto;
+	}
+	td { 
+		width: 70px;
+		height: 70px;
+	}
+	.even {
+		background: #F1F5C4;
+	}
+	.odd {
+		background: #75756E;
+	}
+</style>
+
+</head>
+<body>
+	<table id="board">
+		<tr>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+		</tr>
+		<tr>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+			<td></td>
+		</tr>
+	</table>
+<script>
+(function(){
+	var Game = (function(){
+		function Game() {
+			this._init = function() {
+				var i, j, len, lngth, p, pProperties, c, src;
+				window.onload = function() {
+					this.board = new Board();				
+				// board.set();
+				};
+				this.pieces = [
+				{"type": "rook", "squares": ["1a","1h",
+				"8a", "8h"], "srcs": ["imgs/black_rook.png", "imgs/white_rook.png"]}, 
+				{"type": "pawn", "squares": 
+				["2a","2b","2c", "2d","2e","2f","2g", "2h", "6a","6b",
+				"6c", "6d","6e","6f","6g", "6h"], "srcs": ["imgs/black_pawn.png", "imgs/white_pawn.png"]}, 
+				{"type": "knight", "squares": ["1b", "1g","8b","8g"],"srcs": ["imgs/black_knight.png", "imgs/white_knight.png"]}, 
+				{"type":"bishop", "squares": ["1c","1f","8c","8f"],"srcs": ["imgs/black_bishop.png", "imgs/white_bishop.png"]}, 
+				{"type":"queen", "squares": ["1d","8d"],"srcs": ["imgs/black_queen.png", "imgs/white_queen.png"]}, 
+				{"type": "king", "squares": ["1e","8e"],"srcs": ["imgs/black_king.png", "imgs/white_king.png"]}];
+				this.pieceList = [];
+				for(i = 0, len = this.pieces.length; i<len; i++) {
+					p = this.pieces[i];
+					for (j = 0, lngth = p.squares.length; j < lngth; j++) {
+						c = j < lngth/2 ? "white" : "black";
+						src = j < lngth/2 ? p.srcs[1] : p.srcs[0];
+						pProperties = {"type": p.type, "square": p.squares[j], "color": c, "src": src};
+						this.pieceList.push(new Piece(pProperties));
+					}
+				}
+console.log(this.pieceList);
+			}
+
+			var Piece = (function() {
+				function Piece(x) {
+					console.log(x);
+				}
+				return Piece;
+			})();
+			var Board = (function() {
+				function Board() {
+					var i, len;
+					this.rows = document.querySelectorAll("tr"); 
+					for (i = 0, len = this.rows.length; i < len; i++) {
+						this.setSquares(this.rows[i], 8-i);
+					}
+
+				}
+				Board.prototype.setSquares = function(row, index) {
+					var i, len, color;
+					var cols = row.querySelectorAll("td");
+					this.squares = {};
+					var columns = ["a","b","c","d","e","f","g","h"];
+					for (i = 0, len = cols.length; i < len; i++) {
+						color = (i + index) % 2 == 0 ? "even" : "odd";
+						cols[i].setAttribute("class", index+columns[i] + " " + color);
+					}
+				}
+				Board.prototype.set = function() {
+					// this.types = ["rook", "pawn", "knight", "bishop", "queen", "king"];
+					var i, len;
+					
+
+					// for (i = 0; len = )
+					// var blackPawnSquares = this.rows[1].querySelectorAll("td");
+					// var whitePawnSquares = this.rows[6].querySelectorAll("td");
+					// for (i = 0, len = blackPawnSquares.length; i < len; i ++) {
+					// 	var img = document.createElement("img");
+					// 	img.src = "imgs/black_pawn.png";
+					// 	blackPawnSquares[i].appendChild(img);
+					// 	var img2 = document.createElement("img");
+					// 	img2.src = "imgs/white_pawn.png";
+					// 	whitePawnSquares[i].appendChild(img2);
+					// }
+					// for (wp = 0, len = blackPawnSquares.length; wp < len; wp ++) {
+					// 	var img = document.createElement("img");
+					// 	img.src = "imgs/black_pawn.png";
+					// 	blackPawnSquares[bp].appendChild(img);
+					// }
+
+				}
+				return Board;
+			})();
+		this._init();
+		}
+		return Game;
+	})();
+	new Game();
+})();
+</script>	
+</body>
+</html>
