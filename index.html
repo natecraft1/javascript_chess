@@ -154,7 +154,7 @@
 			var Piece = (function() {
 				function Piece(props) {
 					this.type = props.type;
-					this.position = props.square;
+					this.starting_position = props.square;
 					this.color = props.color;
 					this.src = props.src;
 					this.legalMoves(); 
@@ -177,6 +177,7 @@
 						case "rook": 
 						  this.moves = [[-1,0], [1,0], [0,-1], [0,1]];
 						  this.multiples = true;
+						  this.moved = false;
 						  break;
 						case "knight":
 						  this.moves = [[-2,-1], [-2,1], [-1,-2], [-1,2], [1,2], [2,1], [1,-2], [2,-1]];
@@ -188,6 +189,7 @@
 							break;
 						case "king": [[-1,0], [1,0], [0,-1], [0,1], [-1,-1], [-1,1], [1,1], [1,-1]];
 							this.multiples = true;
+							this.moved = false;
 							break;
 						case "bishop":
 						  this.moves = [[1,1], [-1,-1], [-1,1], [1,-1]];
@@ -242,11 +244,6 @@
 							that.selectedEl = targetEl;
 							targetEl.className += " selected";
 						}
-						
-						// if there wasn't, and we actually clicked a piece select it
-						// could do an unless it's already selected check here but we can save the fancy stuff for later
-						
-						// lets just try to move it
 					}
 				}
 				Board.prototype.movePiece = function(target, targetEl) {
@@ -264,18 +261,21 @@
 					this.selectedEl = null;
 				}
  				Board.prototype.validMove = function(piece, from, to) {
- 					// first check if there is another one of our pieces on or in the way of the square we wish to move to
- 					console.log(piece, from, to);
- 					var desiredShift = [~~to[0]- ~~from[0], ~~to[1]- ~~ from[1]];
+ 					var desiredShift = [~~to[0] - ~~from[0], ~~to[1] - ~~ from[1]];
  					var desiredStr = JSON.stringify(desiredShift);
-console.log(desiredShift);
+ 					var spotTaken = this.spotTaken(to);
+ 					var diffColors = this.positions[to] && this.positions[to].color != piece.color;
+console.log(diffColors, 'diffColors');
  					if (piece.type == "pawn") {
 // is it one of our primary moves?
 						if (JSON.stringify(piece.moves).indexOf(desiredStr) != -1) {
-							if (!piece.moved) piece.moved = true;
-							return true;
+console.log(from, to, spotTaken);
+							if (!spotTaken) {
+								if (!piece.moved) piece.moved = true;
+								return true;
+							}	
 // are we trying to eat a piece?
-						} else if (JSON.stringify(piece.eat).indexOf(desiredStr) != -1 && this.positions[to] && this.positions[to].color != piece.color) {
+						} else if (JSON.stringify(piece.eat).indexOf(desiredStr) != -1 && diffColors) {
 								if (!piece.moved) piece.moved = true;
 								return true;
 // if nothing is valid so far, maybe it's our first move
@@ -287,8 +287,12 @@ console.log(desiredShift);
 							return false;
 						}			
  					} else { 
+ 						console.log(piece)
+ 						console.log("multiples", piece.multiples);
+ 						console.log("desiredShift", desiredShift);
  						// we are not a pawn
-						if (piece.multiples && Math.abs(desiredShift[0]) > 1 || Math.abs(desiredShift[1]) > 1) {
+						if (piece.multiples && (Math.abs(desiredShift[0]) > 1 || Math.abs(desiredShift[1]) > 1)) {
+console.log("called?");
 							// here we check if there's anything in our way
 							if (this.multiples(piece, desiredShift, desiredStr, from, to)){
 								return true;
@@ -296,15 +300,21 @@ console.log(desiredShift);
 								return false;
 							}
 						} else {
+console.log("this should be called")
 							// not trying to move multiple squares
-							if (JSON.stringify(piece.moves).indexOf(desiredStr) != -1 && !this.positions[to]) {
+console.log(JSON.stringify(piece.moves), "desiredStr", desiredStr);
+console.log(JSON.stringify(piece.moves).indexOf(desiredStr));
+							if (JSON.stringify(piece.moves).indexOf(desiredStr) != -1 && (diffColors || !spotTaken)) {
+
 								return true;
 							} else { return false; }
 						}
  					}
  				}
+ 				Board.prototype.spotTaken = function(to) {
+ 					return this.positions[to] ?  true : false; 
+ 				}
  				Board.prototype.multiples = function(piece, desiredShift, desiredStr, from, to) {
- 					console.log(from, to, "from to");
  					var non_zero, direction, inBtwnSq,
  					startArr = [~~from[0],~~from[1]];
  					// is it a legal attempt?
@@ -318,7 +328,6 @@ console.log(desiredShift);
  					for (i = 0, len = piece.moves.length; i < len; i++) {
  						if (JSON.stringify([piece.moves[i][0] * r, piece.moves[i][1] * c]) == desiredStr) {
  							direction = piece.moves[i];
-console.log(direction, "direction");
  							// are there any of our pieces in the way?
  							for (j = 0; j < (Math.max(r,c)-1); j++) {
 // this seems sketchy to update startArr (contender for refactor)
@@ -346,7 +355,7 @@ console.log(direction, "direction");
 					for (i = 0, len = positionKeys.length; i < len; i++) {
 						piece = positions[positionKeys[i]];
 						if (piece) {
-							sq = document.getElementsByClassName(piece.position)[0];
+							sq = document.getElementsByClassName(piece.starting_position)[0];
 							var img = document.createElement("img");
 							img.src = piece.src;
 							sq.appendChild(img);
