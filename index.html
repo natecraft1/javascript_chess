@@ -188,6 +188,7 @@
 							this.multiples = true;
 							break;
 						case "king": 
+							this.castleMoves = [[0,-2], [0,2]];
 							this.moves = [[-1,0], [1,0], [0,-1], [0,1], [-1,-1], [-1,1], [1,1], [1,-1]];
 							this.multiples = true;
 							this.moved = false;
@@ -206,6 +207,7 @@
 					var that = this;
 					this.valid;
 					this.trn = "white";
+					this.justCastled;
 					this.board = document.getElementById("board");
 					this.rows = document.querySelectorAll("tr"); 
 					for (i = 0, len = this.rows.length; i < len; i++) {
@@ -213,7 +215,7 @@
 					}
 					this.board.onclick = function(e) {
 						// what did we click on?
-						var clicked = e.target, target, valid;
+						var clicked = e.target, target, valid, piece;
 						if (clicked.tagName == "TD") {
 							targetEl = clicked;
 							target = clicked.className.split(" ")[0];
@@ -222,12 +224,12 @@
 							target = targetEl.className.split(" ")[0];
 						}
 						// if there was, and the target sq contains a different one of our pieces, select the other piece and unselect the old one.
-
+						piece = that.positions[that.selected];
 						if (that.selected) {
 							// make sure it's not the same sq
 							if (that.selected != target) {
 								// we're trying to move to a different square
-									if (that.positions[target] && that.positions[target].color == that.positions[that.selected].color) {
+									if (that.positions[target] && that.positions[target].color == piece.color) {
 										// remove the selected class from the last element
 										that.selectedEl.className = that.selectedEl.className.replace("selected", "");
 										// add it to the new one
@@ -235,11 +237,11 @@
 										that.selected = target;
 										that.selectedEl = targetEl;
 								} else {
-									if (that.validMove(that.positions[that.selected], that.selected, target)) {
-										that.movePiece(target, targetEl);
-										console.log(that.trn);
+// that.justCastled should be a contender for refactor since we probably shouldn't be calling methods (castle) that move pieces from within validMove, so should we check here whether we're trying to castle? or within movePiece?
+									that.justCastled = false;
+									if (that.validMove(piece, that.selected, target)) {
+										if (!that.justCastled) that.movePiece(target, targetEl);
 										that.turn(that.trn);
-										console.log("that.trn", that.trn);
 									}
 								}
 							}
@@ -251,7 +253,6 @@
 						}
 					}
 					this.turn = function(color) {
-						console.log("called with", color)
 						if (color == "white") {
 							this.trn = "black";
 						} else {
@@ -261,6 +262,7 @@
 				}
 				Board.prototype.movePiece = function(target, targetEl) {
 					// moves the elements
+console.log("MOVEPIECE")
 					var html = this.selectedEl.innerHTML;
 					this.selectedEl.innerHTML = "";
 					targetEl.innerHTML = html;
@@ -278,11 +280,12 @@
  					var desiredStr = JSON.stringify(desiredShift);
  					var spotTaken = this.spotTaken(to);
  					var diffColors = this.positions[to] && this.positions[to].color != piece.color;
-console.log(diffColors, 'diffColors');
+ 					var cornerPiece, fromRow;
+ 					console.log(piece, "piece", desiredStr, "desiredStr");
+ 					console.log("moved", piece.moved);
  					if (piece.type == "pawn") {
 // is it one of our primary moves?
 						if (JSON.stringify(piece.moves).indexOf(desiredStr) != -1) {
-console.log(from, to, spotTaken);
 							if (!spotTaken) {
 								if (!piece.moved) piece.moved = true;
 								return true;
@@ -299,8 +302,43 @@ console.log(from, to, spotTaken);
 						} else {
 							return false;
 						}			
- 					} else { 
+ 					} else {
  						// we are not a pawn
+ 						// check if we're a king that's trying to castle 
+console.log(piece.type, !piece.moved);
+ 						if (piece.type == "king" 
+ 							&& !piece.moved
+ 							&& JSON.stringify(piece.castleMoves).indexOf(desiredStr) != -1) { 
+console.log("im a unmoved king with a valid move in the books");
+ 							fromRow = from[0];
+ 							if (desiredShift[1] < 0) {
+ 								// trying to castle left
+ 								cornerPiece = this.positions[fromRow + 0];
+ 								if (cornerPiece.type == "rook" 
+ 									&& !cornerPiece.moved
+ 									&& !this.positions[fromRow + 1]
+ 									&& !this.positions[fromRow + 2]
+ 									&& !this.positions[fromRow + 3]) {
+ 									this.castle(piece,from,to,cornerPiece,fromRow+0,fromRow+3);
+ 									this.justCastled = true;
+ 									return true;
+ 								console.log("castleLeft");
+ 								}
+ 							} else {
+ 								// trying to castle right
+ 								cornerPiece = this.positions[fromRow + 7];
+ 								if (cornerPiece.type == "rook"
+ 									&& !cornerPiece.moved
+ 									&& !this.positions[fromRow + 6]
+ 									&& !this.positions[fromRow + 5]) {
+
+ 									this.castle(piece,from,to,cornerPiece,fromRow+7,fromRow+5);
+ 									this.justCastled = true;
+ 									return true;
+ 								console.log("castleRight");
+ 								}
+ 							}
+						}
 						if (piece.multiples && (Math.abs(desiredShift[0]) > 1 || Math.abs(desiredShift[1]) > 1)) {
 							// here we check if there's anything in our way
 							if (this.multiples(piece, desiredShift, desiredStr, from, to)){
@@ -310,9 +348,7 @@ console.log(from, to, spotTaken);
 							}
 						} else {
 							// not trying to move multiple squares
-console.log(JSON.stringify(piece.moves), desiredStr);
 							if (JSON.stringify(piece.moves).indexOf(desiredStr) != -1 && (diffColors || !spotTaken)) {
-
 								return true;
 							} else { return false; }
 						}
@@ -320,6 +356,29 @@ console.log(JSON.stringify(piece.moves), desiredStr);
  				}
  				Board.prototype.spotTaken = function(to) {
  					return this.positions[to] ?  true : false; 
+ 				}
+ 				Board.prototype.castle = function(king, kFrom, kTo, rook, rFrom, rTo) {
+
+					king.moved = true;
+					rook.moved = true;
+ 					var kingHTML = this.selectedEl.innerHTML;
+ 					var rookEl = document.getElementsByClassName(rFrom)[0];
+ 					var rookHTML = rookEl.innerHTML;
+ 					var kToEl = document.getElementsByClassName(kTo)[0];
+ 					var rToEl = document.getElementsByClassName(rTo)[0];
+ 					this.selectedEl.innerHTML = "";
+ 					rookEl.innerHTML = "";
+ 					kToEl.innerHTML = kingHTML;
+ 					rToEl.innerHTML = rookHTML;
+ 					this.selectedEl.className = this.selectedEl.className.replace("selected", "");
+ 					// update positions
+ 					this.positions[kTo] = this.positions[kFrom];
+ 					this.positions[kFrom] = null;
+ 					this.positions[rTo] = this.positions[rFrom];
+ 					this.positions[rFrom] = null;
+ 					// clear selected
+ 					this.selected = null;
+ 					this.selectedEl = null;
  				}
  				Board.prototype.multiples = function(piece, desiredShift, desiredStr, from, to) {
  					var non_zero, direction, inBtwnSq,
