@@ -187,7 +187,8 @@
 							this.moves = [[-1,0], [1,0], [0,-1], [0,1], [-1,-1], [-1,1], [1,1], [1,-1]];
 							this.multiples = true;
 							break;
-						case "king": [[-1,0], [1,0], [0,-1], [0,1], [-1,-1], [-1,1], [1,1], [1,-1]];
+						case "king": 
+							this.moves = [[-1,0], [1,0], [0,-1], [0,1], [-1,-1], [-1,1], [1,1], [1,-1]];
 							this.multiples = true;
 							this.moved = false;
 							break;
@@ -204,6 +205,7 @@
 					var i, len;
 					var that = this;
 					this.valid;
+					this.trn = "white";
 					this.board = document.getElementById("board");
 					this.rows = document.querySelectorAll("tr"); 
 					for (i = 0, len = this.rows.length; i < len; i++) {
@@ -235,15 +237,26 @@
 								} else {
 									if (that.validMove(that.positions[that.selected], that.selected, target)) {
 										that.movePiece(target, targetEl);
+										console.log(that.trn);
+										that.turn(that.trn);
+										console.log("that.trn", that.trn);
 									}
 								}
 							}
-						} else if (that.positions[target]) {
+						} else if (that.positions[target] && that.positions[target].color == that.trn) {
 							// this means nothing has been selected yet
 							that.selected = target;
 							that.selectedEl = targetEl;
 							targetEl.className += " selected";
 						}
+					}
+					this.turn = function(color) {
+						console.log("called with", color)
+						if (color == "white") {
+							this.trn = "black";
+						} else {
+							this.trn = "white";
+						} 
 					}
 				}
 				Board.prototype.movePiece = function(target, targetEl) {
@@ -287,12 +300,8 @@ console.log(from, to, spotTaken);
 							return false;
 						}			
  					} else { 
- 						console.log(piece)
- 						console.log("multiples", piece.multiples);
- 						console.log("desiredShift", desiredShift);
  						// we are not a pawn
 						if (piece.multiples && (Math.abs(desiredShift[0]) > 1 || Math.abs(desiredShift[1]) > 1)) {
-console.log("called?");
 							// here we check if there's anything in our way
 							if (this.multiples(piece, desiredShift, desiredStr, from, to)){
 								return true;
@@ -300,10 +309,8 @@ console.log("called?");
 								return false;
 							}
 						} else {
-console.log("this should be called")
 							// not trying to move multiple squares
-console.log(JSON.stringify(piece.moves), "desiredStr", desiredStr);
-console.log(JSON.stringify(piece.moves).indexOf(desiredStr));
+console.log(JSON.stringify(piece.moves), desiredStr);
 							if (JSON.stringify(piece.moves).indexOf(desiredStr) != -1 && (diffColors || !spotTaken)) {
 
 								return true;
