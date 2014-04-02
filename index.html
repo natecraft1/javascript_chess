@@ -285,15 +285,21 @@ console.log(desiredShift);
 								return true;
 						} else {
 							return false;
-						}
-								
+						}			
  					} else { 
+ 						// we are not a pawn
 						if (piece.multiples && Math.abs(desiredShift[0]) > 1 || Math.abs(desiredShift[1]) > 1) {
+							// here we check if there's anything in our way
 							if (this.multiples(piece, desiredShift, desiredStr, from, to)){
 								return true;
 							} else {
 								return false;
 							}
+						} else {
+							// not trying to move multiple squares
+							if (JSON.stringify(piece.moves).indexOf(desiredStr) != -1 && !this.positions[to]) {
+								return true;
+							} else { return false; }
 						}
  					}
  				}
@@ -309,34 +315,19 @@ console.log(desiredShift);
 					// does one of our available moves match the desired move?
  					var r, c, i, j, len;
  					r = Math.abs(desiredShift[0]), c = Math.abs(desiredShift[1]);
-// console.log(r, c, "r c", "desiredShift", desiredShift);
-console.log(JSON.stringify(piece.moves), "moves");
  					for (i = 0, len = piece.moves.length; i < len; i++) {
-// console.log("moves", piece.moves[i]);
  						if (JSON.stringify([piece.moves[i][0] * r, piece.moves[i][1] * c]) == desiredStr) {
  							direction = piece.moves[i];
 console.log(direction, "direction");
  							// are there any of our pieces in the way?
-// console.log(fromArr, 'fromArr', fromArr[0] + direction[0]);
-console.log("max", Math.max(r,c)-1);
  							for (j = 0; j < (Math.max(r,c)-1); j++) {
 // this seems sketchy to update startArr (contender for refactor)
  								startArr[0] = startArr[0] + direction[0];
  								startArr[1] = startArr[1] + direction[1];
  								inBtwnSq = startArr[0] + "" + startArr[1];
-console.log(inBtwnSq);
  								if (this.positions[inBtwnSq]) { return false;}
  							}
  							return true;
- 							// if (zeroIndex != -1) {
- 							// 	non_zero = zeroIndex = 0 ? 1 : 0;
- 							// 	// increase
- 							// 	return true;
- 							// } 
- 							// if we find a direction, and the multiplication doesn't work, we don't need to keep looking for other directions
- 							// else {
- 							// 	return false;
- 							// }
  						}
  					}
  					return false;
