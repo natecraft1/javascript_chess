@@ -162,9 +162,15 @@
 				Piece.prototype.legalMoves = function() {
 					switch (this.type) {
 						case "pawn":
-							this.moves = [[-1,0]];
-							this.eat = [[-1,-1],[-1,1]];
-							this.firstMoves = [[-1,0], [-2,0]];
+							if (this.color == "white") {
+								this.moves = [[-1,0]];
+								this.eat = [[-1,-1],[-1,1]];
+								this.firstMoves = [[-1,0], [-2,0]];
+							} else {
+								this.moves = [[1,0]];
+								this.eat = [[1,1], [1,-1]];
+								this.firstMoves = [[1,0], [2,0]];
+							}
 							this.moved = false;
 							this.multiples = false;
 							break;
@@ -216,29 +222,22 @@
 						if (that.selected) {
 							// make sure it's not the same sq
 							if (that.selected != target) {
-								if (that.positions[target]) {
-									if (that.positions[target].color == that.positions[that.selected].color) {
+								// we're trying to move to a different square
+									if (that.positions[target] && that.positions[target].color == that.positions[that.selected].color) {
 										// remove the selected class from the last element
 										that.selectedEl.className = that.selectedEl.className.replace("selected", "");
 										// add it to the new one
 										targetEl.className += " selected";
 										that.selected = target;
 										that.selectedEl = targetEl;
-									} else {
-										// this means it's the opposite color, so lets eat it
-										// if (that.validMove(piece)) {
-										that.movePiece(target, targetEl);
-										// }
-
-									}
 								} else {
-									// if there was, and it's an empty square, move our piece there and delete it from the previous square.
 									if (that.validMove(that.positions[that.selected], that.selected, target)) {
 										that.movePiece(target, targetEl);
 									}
 								}
 							}
 						} else if (that.positions[target]) {
+							// this means nothing has been selected yet
 							that.selected = target;
 							that.selectedEl = targetEl;
 							targetEl.className += " selected";
@@ -265,22 +264,82 @@
 					this.selectedEl = null;
 				}
  				Board.prototype.validMove = function(piece, from, to) {
+ 					// first check if there is another one of our pieces on or in the way of the square we wish to move to
  					console.log(piece, from, to);
  					var desiredShift = [~~to[0]- ~~from[0], ~~to[1]- ~~ from[1]];
  					var desiredStr = JSON.stringify(desiredShift);
- 					// console.log(JSON.stringify(piece.moves).indexOf(desiredString));
+console.log(desiredShift);
  					if (piece.type == "pawn") {
-						if (!piece.moved) {
-							if (JSON.stringify(piece.firstMoves).indexOf(desiredStr) != -1) {
+// is it one of our primary moves?
+						if (JSON.stringify(piece.moves).indexOf(desiredStr) != -1) {
+							if (!piece.moved) piece.moved = true;
+							return true;
+// are we trying to eat a piece?
+						} else if (JSON.stringify(piece.eat).indexOf(desiredStr) != -1 && this.positions[to] && this.positions[to].color != piece.color) {
+								if (!piece.moved) piece.moved = true;
+								return true;
+// if nothing is valid so far, maybe it's our first move
+						} else if (!piece.moved && JSON.stringify(piece.firstMoves).indexOf(desiredStr) != -1) {
+// here we still need to check, is something in the way?? bc we could be moving 2 spaces up and running into something
 								piece.moved = true;
 								return true;
-							} else if (JSON.stringify(piece.eat).indexOf(desiredStr) != -1 && this.positions[to] && this.positions[to].color != piece.color) {
-								piece.moved = false;
+						} else {
+							return false;
+						}
+								
+ 					} else { 
+						if (piece.multiples && Math.abs(desiredShift[0]) > 1 || Math.abs(desiredShift[1]) > 1) {
+							if (this.multiples(piece, desiredShift, desiredStr, from, to)){
 								return true;
-								// this is looking for if we're trying to eat a piece
+							} else {
+								return false;
 							}
-						} 						
- 					} else { console.log(false) }
+						}
+ 					}
+ 				}
+ 				Board.prototype.multiples = function(piece, desiredShift, desiredStr, from, to) {
+ 					console.log(from, to, "from to");
+ 					var non_zero, direction, inBtwnSq,
+ 					startArr = [~~from[0],~~from[1]];
+ 					// is it a legal attempt?
+ 					var zeroIndex = desiredShift.indexOf(0);
+					if (zeroIndex == -1 && Math.abs(desiredShift[0]) != Math.abs(desiredShift[1])) {
+						return false;
+					};
+					// does one of our available moves match the desired move?
+ 					var r, c, i, j, len;
+ 					r = Math.abs(desiredShift[0]), c = Math.abs(desiredShift[1]);
+// console.log(r, c, "r c", "desiredShift", desiredShift);
+console.log(JSON.stringify(piece.moves), "moves");
+ 					for (i = 0, len = piece.moves.length; i < len; i++) {
+// console.log("moves", piece.moves[i]);
+ 						if (JSON.stringify([piece.moves[i][0] * r, piece.moves[i][1] * c]) == desiredStr) {
+ 							direction = piece.moves[i];
+console.log(direction, "direction");
+ 							// are there any of our pieces in the way?
+// console.log(fromArr, 'fromArr', fromArr[0] + direction[0]);
+console.log("max", Math.max(r,c)-1);
+ 							for (j = 0; j < (Math.max(r,c)-1); j++) {
+// this seems sketchy to update startArr (contender for refactor)
+ 								startArr[0] = startArr[0] + direction[0];
+ 								startArr[1] = startArr[1] + direction[1];
+ 								inBtwnSq = startArr[0] + "" + startArr[1];
+console.log(inBtwnSq);
+ 								if (this.positions[inBtwnSq]) { return false;}
+ 							}
+ 							return true;
+ 							// if (zeroIndex != -1) {
+ 							// 	non_zero = zeroIndex = 0 ? 1 : 0;
+ 							// 	// increase
+ 							// 	return true;
+ 							// } 
+ 							// if we find a direction, and the multiplication doesn't work, we don't need to keep looking for other directions
+ 							// else {
+ 							// 	return false;
+ 							// }
+ 						}
+ 					}
+ 					return false;
  				}
 				Board.prototype.setSquares = function(row, index) {
 					var i, len, color;
