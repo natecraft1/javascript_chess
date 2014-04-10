@@ -1,4 +1,3 @@
-<!doctype html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
@@ -137,6 +136,10 @@
 					}
 					return obj;
 				}).call(this);
+
+				this.board.kings = {"white": "74", "black": "04"};
+				console.log(this.board.kings);
+
 				for(i = 0, len = this.board.pieces.length; i<len; i++) {
 					p = this.board.pieces[i];
 					for (j = 0, lngth = p.squares.length; j < lngth; j++) {
@@ -146,6 +149,7 @@
 						pProperties = {"type": p.type, "square": pos, "color": c, "src": src};
 						var newPiece = new Piece(pProperties);
 						this.board.positions[pos] = newPiece;
+						// this.board.immobile[pos] = false;
 					}
 				}
 				this.board.set(this.board.positions);
@@ -208,6 +212,10 @@
 					this.valid;
 					this.trn = "white";
 					this.justCastled;
+					this.knightMoves = [[-2,-1], [-2,1], [-1,-2], [-1,2], [1,2], [2,1], [1,-2], [2,-1]];
+					this.check = { "white": false, "black": false };
+					this.checkPaths = { "white": [], "black": [] };
+console.log(this.checkPaths);
 					this.board = document.getElementById("board");
 					this.rows = document.querySelectorAll("tr"); 
 					for (i = 0, len = this.rows.length; i < len; i++) {
@@ -225,24 +233,23 @@
 						}
 						// if there was, and the target sq contains a different one of our pieces, select the other piece and unselect the old one.
 						piece = that.positions[that.selected];
-						if (that.selected) {
-							// make sure it's not the same sq
-							if (that.selected != target) {
-								// we're trying to move to a different square
-									if (that.positions[target] && that.positions[target].color == piece.color) {
-										// remove the selected class from the last element
-										that.selectedEl.className = that.selectedEl.className.replace("selected", "");
-										// add it to the new one
-										targetEl.className += " selected";
-										that.selected = target;
-										that.selectedEl = targetEl;
-								} else {
+						if (that.selected && that.selected != target) {
+							// we're not trying to move to a different square
+							if (that.positions[target] && that.positions[target].color == piece.color) {
+									// remove the selected class from the last element
+									that.selectedEl.className = that.selectedEl.className.replace("selected", "");
+									// add it to the new one
+									targetEl.className += " selected";
+									that.selected = target;
+									that.selectedEl = targetEl;
+							} else {
 // that.justCastled should be a contender for refactor since we probably shouldn't be calling methods (castle) that move pieces from within validMove, so should we check here whether we're trying to castle? or within movePiece?
-									that.justCastled = false;
-									if (that.validMove(piece, that.selected, target)) {
-										if (!that.justCastled) that.movePiece(target, targetEl);
-										that.turn(that.trn);
-									}
+								that.justCastled = false;
+								if (that.validMove(piece, that.selected, target)) {
+									that.setCheck(piece, target);
+									if (!that.justCastled) that.movePiece(target, targetEl);
+									that.turn(that.trn);
+									if (piece.type == "king") that.kings[piece.color] = target;
 								}
 							}
 						} else if (that.positions[target] && that.positions[target].color == that.trn) {
@@ -260,9 +267,125 @@
 						} 
 					}
 				}
+				Board.prototype.setCheck = function(piece, newSq) {
+					// are they in check?
+					console.log(this.checkPaths);
+
+					console.log(piece, newSq);
+					console.log(this.trn);
+					var opponent = this.trn == "white" ? "black" : "white";
+					var oppInCheck = this.check[opponent];
+					var type = piece.type;
+					var distFromKing, oppKingSq =	this.kings[opponent];
+					
+					if (type == "pawn" || type == "knight") {
+						var checkMoves = type == "pawn" ? piece.eat : piece.moves;
+						var potentialChecks = (function() {
+							var i, d1, d2, len, arr = [];
+							for (i = 0, len = checkMoves.length; i < len; i++) {
+								d1 = ~~newSq[0] + checkMoves[i][0];
+								d2 = ~~newSq[1] + checkMoves[i][1];
+								arr.push(d1 + "" + d2);
+							}
+							return arr;
+						})();
+// POTENTIAL REFACTOR BC THIS LOGIC IS BEING REPEATED IN THE ELSE STATEMENT AS WELL 
+						var check = potentialChecks.indexOf(oppKingSq) == -1 ? false : true;
+						if (oppInCheck != check) { this.check[opponent] = check; }
+						if (this.check[opponent]) { this.checkMate(opponent); };
+					} else {
+						// not a knight or pawn
+						// first check if it's possible
+						distFromKing = [~~oppKingSq[0] - ~~newSq[0], ~~oppKingSq[1] - ~~ newSq[1]];
+						if (this.validDirection(distFromKing)) {
+							// it's possible that the opp is in check
+							// if it's not impeded opp is in check
+							console.log("OPPONENT", opponent);
+							var notInCheck = this.notInCheck(piece, distFromKing, JSON.stringify(distFromKing), newSq, opponent);
+							this.check[opponent] = !notInCheck;
+							if (typeof notInCheck == "string") { this.immobile[notInCheck] = true; }
+							if (!notInCheck) { this.checkMate(opponent, distFromKing); }
+						}
+					}
+				}
+				Board.prototype.checkMate = function(opponent, distFromKing) {
+					console.log("checkMate called");
+					var i, len, sq;
+					var oppKingSq = this.kings[opponent];
+					var oppKing = this.positions[oppKingSq];
+					var possibleKingMoves = [];
+					var surroundingSqs = (function() {
+						var arr = [];
+						var i, len, f, s, combined;
+						for (i = 0, len = oppKing.moves.length; i<len; i++) {
+							f = ~~oppKingSq[0] + oppKing.moves[i][0];
+							s = ~~oppKingSq + oppKing.moves[i][1];
+						  combined = f + "" + s;
+						  if (combined in this.positions) {
+						  	arr.push(combined);
+						  }
+						}
+						return arr;
+					}).call(this);
+					for (i = 0, len = surroundingSqs.length; i < len; i++) {
+						sq = surroundingSqs[i];
+						if (!this.positions[sq] || this.positions[sq].color !== opponent) {
+							possibleKingMoves.push(sq);
+						} 
+					}
+					if (this.possibleKingMove(possibleKingMoves, oppKing.moves, opponent)) { 
+						return false; 
+					} else if (this.canBeSaved()) {
+
+					}
+				}
+				Board.prototype.canBeSaved = function() {
+					console.log("trying to save me");
+				}
+				Board.prototype.possibleKingMove = function(sqs, moves, opponent) {
+					var i, len, k, lenth, knt, j, lngth, f, ff, s, ss, next, path, strMove;
+					// we have to walk all directions until we hit one of our own, an opponent, or to the end of the board
+					allSqs: for (i = 0, len = sqs.length; i < len; i++) {
+						f = ~~sqs[i][0], s = ~~sqs[i][1];
+						// check for knights
+						for (k = 0, length = this.knightMoves.length; k < lenth; k++) {
+							knt = (f + this.knightMoves[k][0]) + "" + (s + this.knightMoves[k][1]); 
+							if (this.positions[knt] 
+								&& this.positions[knt].type == "knight" 
+								&& this.positions[knt].color != opponent) {
+								continue allSqs;
+							}
+						}
+						if (JSON.stringify(this.knightMoves))
+					allMoves:	for (j = 0, lngth = moves.length; j < lngth; j++) {
+							// conditions for break:
+							strMove = JSON.stringify(moves[j]);
+							ff = f, ss = s;
+							// we reach the end of the board
+							while (ff < 8 && ss < 8) {
+								ff += moves[j][0];
+								ss += moves[j][1];
+								next = ff + "" + ss;
+								if (this.positions[next]) {
+									if (this.positions[next].color == opponent) {
+										// we hit our own piece
+										break;
+									} else {
+										if (JSON.stringify(this.positions[next].moves).indexOf(strMove) != -1) {
+											break allMoves;
+											// we hit an opp piece that doesn't share the path
+										} else { break; }
+									}
+								}
+							}
+						}
+						// we found a free sq
+						return true;
+					}
+					return false;
+				}
 				Board.prototype.movePiece = function(target, targetEl) {
 					// moves the elements
-console.log("MOVEPIECE")
 					var html = this.selectedEl.innerHTML;
 					this.selectedEl.innerHTML = "";
 					targetEl.innerHTML = html;
@@ -281,8 +404,6 @@ console.log("MOVEPIECE")
  					var spotTaken = this.spotTaken(to);
  					var diffColors = this.positions[to] && this.positions[to].color != piece.color;
  					var cornerPiece, fromRow;
- 					console.log(piece, "piece", desiredStr, "desiredStr");
- 					console.log("moved", piece.moved);
  					if (piece.type == "pawn") {
 // is it one of our primary moves?
 						if (JSON.stringify(piece.moves).indexOf(desiredStr) != -1) {
@@ -341,7 +462,7 @@ console.log("im a unmoved king with a valid move in the books");
 						}
 						if (piece.multiples && (Math.abs(desiredShift[0]) > 1 || Math.abs(desiredShift[1]) > 1)) {
 							// here we check if there's anything in our way
-							if (this.multiples(piece, desiredShift, desiredStr, from, to)){
+							if (this.validDirection(desiredShift) && !this.notInCheck(piece, desiredShift, desiredStr, from)){
 								return true;
 							} else {
 								return false;
@@ -358,7 +479,7 @@ console.log("im a unmoved king with a valid move in the books");
  					return this.positions[to] ?  true : false; 
  				}
  				Board.prototype.castle = function(king, kFrom, kTo, rook, rFrom, rTo) {
-
+ 					this.kings[king.color] = kTo;
 					king.moved = true;
 					rook.moved = true;
  					var kingHTML = this.selectedEl.innerHTML;
@@ -380,33 +501,59 @@ console.log("im a unmoved king with a valid move in the books");
  					this.selected = null;
  					this.selectedEl = null;
  				}
- 				Board.prototype.multiples = function(piece, desiredShift, desiredStr, from, to) {
- 					var non_zero, direction, inBtwnSq,
- 					startArr = [~~from[0],~~from[1]];
+ 				Board.prototype.validDirection = function(desiredShift) {
+ 					var r, c;
+ 					r = Math.abs(desiredShift[0]), c = Math.abs(desiredShift[1]);
  					// is it a legal attempt?
  					var zeroIndex = desiredShift.indexOf(0);
-					if (zeroIndex == -1 && Math.abs(desiredShift[0]) != Math.abs(desiredShift[1])) {
+					if (zeroIndex == -1 && r != c) {
 						return false;
-					};
-					// does one of our available moves match the desired move?
- 					var r, c, i, j, len;
- 					r = Math.abs(desiredShift[0]), c = Math.abs(desiredShift[1]);
+					} else { return true };
+
+ 				}
+ 				Board.prototype.validPieceDirection = function(piece, r, c, desiredStr) {
  					for (i = 0, len = piece.moves.length; i < len; i++) {
  						if (JSON.stringify([piece.moves[i][0] * r, piece.moves[i][1] * c]) == desiredStr) {
- 							direction = piece.moves[i];
- 							// are there any of our pieces in the way?
- 							for (j = 0; j < (Math.max(r,c)-1); j++) {
-// this seems sketchy to update startArr (contender for refactor)
- 								startArr[0] = startArr[0] + direction[0];
- 								startArr[1] = startArr[1] + direction[1];
- 								inBtwnSq = startArr[0] + "" + startArr[1];
- 								if (this.positions[inBtwnSq]) { return false;}
- 							}
- 							return true;
+ 							return piece.moves[i];
  						}
  					}
- 					return false;
+ 				}	
+ 				Board.prototype.notInCheck = function(piece, desiredShift, desiredStr, from, opponent) {
+ 					// var opponent = this.trn == "white" ? "black" : "white";
+ 					var non_zero, direction, inBtwnSq, r, c, i, j, len, startArr, inBtwnSqs;
+ 				// 	r = Math.abs(desiredShift[0]), c = Math.abs(desiredShift[1]);
+ 					startArr = [~~from[0],~~from[1]];
+ 					r = Math.abs(desiredShift[0]), c = Math.abs(desiredShift[1]);
+
+					// does one of our available moves match the desired move?
+					var validPD = this.validPieceDirection(piece, r, c, desiredStr);
+ 					if (validPD) {
+						direction = validPD;
+						inBtwnSqs = [];
+						// are there any of our pieces in the way?
+						for (j = 0; j < (Math.max(r,c)-1); j++) {
+// this seems sketchy to update startArr (contender for refactor)
+							startArr[0] = startArr[0] + direction[0];
+							startArr[1] = startArr[1] + direction[1];
+							inBtwnSq = startArr[0] + "" + startArr[1];
+							if (this.positions[inBtwnSq]) { 
+								inBtwnSqs = [];
+								return inBtwnSq; 
+							} else {
+								inBtwnSqs.push(inBtwnSq);
+							}
+						}
+						// this means we checked all the squares and there was nothing
+						// save them in the check path
+						inBtwnSqs.push(from);
+						if (opponent) this.checkPaths[opponent] = inBtwnSqs;
+console.log(this.checkPaths);
+						return false;
+ 					} else {
+ 						return true;
+ 					}
  				}
+
 				Board.prototype.setSquares = function(row, index) {
 					var i, len, color;
 					var cols = row.querySelectorAll("td");
