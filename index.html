@@ -301,10 +301,10 @@ console.log(this.checkPaths);
 							// it's possible that the opp is in check
 							// if it's not impeded opp is in check
 							console.log("OPPONENT", opponent);
-							var notInCheck = this.notInCheck(piece, distFromKing, JSON.stringify(distFromKing), newSq, opponent);
-							this.check[opponent] = !notInCheck;
-							if (typeof notInCheck == "string") { this.immobile[notInCheck] = true; }
-							if (!notInCheck) { this.checkMate(opponent, distFromKing); }
+							var pathBlocked = this.pathBlocked(piece, distFromKing, JSON.stringify(distFromKing), newSq, opponent);
+							this.check[opponent] = !pathBlocked;
+							if (typeof pathBlocked == "string") { this.immobile[pathBlocked] = true; }
+							if (!pathBlocked) { this.checkMate(opponent, distFromKing); }
 						}
 					}
 				}
@@ -335,14 +335,54 @@ console.log(this.checkPaths);
 					}
 					if (this.possibleKingMove(possibleKingMoves, oppKing.moves, opponent)) { 
 						return false; 
-					} else if (this.canBeSaved()) {
+					} else if (this.canBeSaved(opponent)) {
 
 					}
 				}
-				Board.prototype.canBeSaved = function() {
-					console.log("trying to save me");
+				Board.prototype.swap = function(color) {
+					return color == "white" ? "black" : "white";
+				}
+				Board.prototype.canBeSaved = function(opponent) {
+					// here we check if ANY of the opps pieces can move to one of our checkPath sqs
+					var i, len, dist, direction, j, lngth, moves, moveTo;
+					var resqueSqs = this.checkPaths[opponent];
+					for (sqr in this.positions) {
+						if (this.positions[sqr] && this.positions[sqr].color == opponent) {
+							for (i = 0, len = resqueSqs.length; i < len; i++) {
+								dist = this.distBtwnSqs(sqr, resqueSqs[i]);
+								if (this.positions[sqr].multiples) {
+									if (this.validDirection(dist)) {
+										direction = this.validPieceDirection(this.positions[sqr], Math.abs(dist[0]), Math.abs(dist[1]), JSON.stringify(dist));
+										if (direction) {
+											if (this.clearPath(sqr, Math.abs(dist[0]), Math.abs(dist[1]), direction)) {
+												return true;
+											}
+										}
+									}
+								} else {
+									// knight or pawn
+									moves = this.positions[sqr].moves;
+									for (j = 0, lngth = moves.length; j < lngth; j++) {
+										moveTo = (~~sqr[0] + moves[j][0]) + "" + (~~sqr[1] + moves[j][1]);
+										if (resqueSqs.indexOf[moveTo] != -1) {
+											return true;
+										}
+									}
+								}
+							}
+						}
+					}
+					return false;
+				}
+				Board.prototype.sqsToShift = function(from, to) {
+					// takes 2 sqs and returns an array of the shift we're trying to make
+					return [~~to[0] - ~~from[0], ~~to[1] - ~~from[1]]
+				}
+				Board.prototype.possibleMove = function() {
+
 				}
 				Board.prototype.possibleKingMove = function(sqs, moves, opponent) {
+					console.log("moves", moves);
 					var i, len, k, lenth, knt, j, lngth, f, ff, s, ss, next, path, strMove;
 					// we have to walk all directions until we hit one of our own, an opponent, or to the end of the board
 					allSqs: for (i = 0, len = sqs.length; i < len; i++) {
@@ -356,13 +396,13 @@ console.log(this.checkPaths);
 								continue allSqs;
 							}
 						}
-						if (JSON.stringify(this.knightMoves))
+						// i think we still need to check for pawns here
 					allMoves:	for (j = 0, lngth = moves.length; j < lngth; j++) {
 							// conditions for break:
 							strMove = JSON.stringify(moves[j]);
 							ff = f, ss = s;
 							// we reach the end of the board
-							while (ff < 8 && ss < 8) {
+							while (ff < 8 && ff >= 0 && ss < 8 && ss >= 0) {
 								ff += moves[j][0];
 								ss += moves[j][1];
 								next = ff + "" + ss;
@@ -372,9 +412,9 @@ console.log(this.checkPaths);
 										break;
 									} else {
 										if (JSON.stringify(this.positions[next].moves).indexOf(strMove) != -1) {
-											break allMoves;
+											continue allSqs;
 											// we hit an opp piece that doesn't share the path
-										} else { break; }
+										} else { continue allMoves; }
 									}
 								}
 							}
@@ -399,7 +439,7 @@ console.log(this.checkPaths);
 					this.selectedEl = null;
 				}
  				Board.prototype.validMove = function(piece, from, to) {
- 					var desiredShift = [~~to[0] - ~~from[0], ~~to[1] - ~~ from[1]];
+ 					var desiredShift = this.sqsToShift(from, to);
  					var desiredStr = JSON.stringify(desiredShift);
  					var spotTaken = this.spotTaken(to);
  					var diffColors = this.positions[to] && this.positions[to].color != piece.color;
@@ -462,7 +502,12 @@ console.log("im a unmoved king with a valid move in the books");
 						}
 						if (piece.multiples && (Math.abs(desiredShift[0]) > 1 || Math.abs(desiredShift[1]) > 1)) {
 							// here we check if there's anything in our way
-							if (this.validDirection(desiredShift) && !this.notInCheck(piece, desiredShift, desiredStr, from)){
+							var r = Math.abs(desiredShift[0]);
+							var c = Math.abs(desiredShift[1]);
+							var dir = this.validPieceDirection(piece, r, c, desiredStr);
+							if (this.validDirection(desiredShift) 
+								&& dir
+								&& this.clearPath(from, r, c, dir)) {
 								return true;
 							} else {
 								return false;
@@ -517,8 +562,22 @@ console.log("im a unmoved king with a valid move in the books");
  							return piece.moves[i];
  						}
  					}
- 				}	
- 				Board.prototype.notInCheck = function(piece, desiredShift, desiredStr, from, opponent) {
+ 				}
+ 				Board.prototype.clearPath = function(from, r, c, direction) {
+ 					var startArr = [~~from[0],~~from[1]];
+ 					var j;
+					for (j = 0; j < (Math.max(r,c)-1); j++) {
+// this seems sketchy to update startArr (contender for refactor)
+						startArr[0] = startArr[0] + direction[0];
+						startArr[1] = startArr[1] + direction[1];
+						inBtwnSq = startArr[0] + "" + startArr[1];
+						if (this.positions[inBtwnSq]) {
+							return false;
+						}
+					}
+					return true;
+ 				}
+ 				Board.prototype.pathBlocked = function(piece, desiredShift, desiredStr, from, opponent) {
  					// var opponent = this.trn == "white" ? "black" : "white";
  					var non_zero, direction, inBtwnSq, r, c, i, j, len, startArr, inBtwnSqs;
  				// 	r = Math.abs(desiredShift[0]), c = Math.abs(desiredShift[1]);
@@ -547,7 +606,6 @@ console.log("im a unmoved king with a valid move in the books");
 						// save them in the check path
 						inBtwnSqs.push(from);
 						if (opponent) this.checkPaths[opponent] = inBtwnSqs;
-console.log(this.checkPaths);
 						return false;
  					} else {
  						return true;
