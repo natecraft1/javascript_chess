@@ -213,7 +213,7 @@
 					this.trn = "white";
 					this.justCastled;
 					this.knightMoves = [[-2,-1], [-2,1], [-1,-2], [-1,2], [1,2], [2,1], [1,-2], [2,-1]];
-					this.check = { "white": false, "black": false };
+					this.check = { "white": false, "black": false, "whiteEscapes": "", "blackEscapes": "" };
 					this.checkPaths = { "white": [], "black": [] };
 console.log(this.checkPaths);
 					this.board = document.getElementById("board");
@@ -291,8 +291,16 @@ console.log(this.checkPaths);
 						})();
 // POTENTIAL REFACTOR BC THIS LOGIC IS BEING REPEATED IN THE ELSE STATEMENT AS WELL 
 						var check = potentialChecks.indexOf(oppKingSq) == -1 ? false : true;
-						if (oppInCheck != check) { this.check[opponent] = check; }
-						if (this.check[opponent]) { this.checkMate(opponent); };
+						if (oppInCheck != check) { 
+							this.check[opponent] = check; 
+						}
+						if (this.check[opponent]) { 
+							if (!this.checkMate(opponent)) {
+
+							} else {
+								this.gameOver();
+							}
+						}
 					} else {
 						// not a knight or pawn
 						// first check if it's possible
@@ -304,9 +312,20 @@ console.log(this.checkPaths);
 							var pathBlocked = this.pathBlocked(piece, distFromKing, JSON.stringify(distFromKing), newSq, opponent);
 							this.check[opponent] = !pathBlocked;
 							if (typeof pathBlocked == "string") { this.immobile[pathBlocked] = true; }
-							if (!pathBlocked) { this.checkMate(opponent, distFromKing); }
+							if (!pathBlocked) { 
+								if (!this.checkMate(opponent, distFromKing)) {
+									
+								} else {
+									this.gameOver();
+								}
+							}
 						}
 					}
+					// CAREFUL HERE, but I think we need to reset this every turn.	
+					this.check[opponent + "Escapes"] = ""; 
+				}
+				Board.prototype.gameOver = function() {
+					console.log("gg");
 				}
 				Board.prototype.checkMate = function(opponent, distFromKing) {
 					console.log("checkMate called");
@@ -336,7 +355,9 @@ console.log(this.checkPaths);
 					if (this.possibleKingMove(possibleKingMoves, oppKing.moves, opponent)) { 
 						return false; 
 					} else if (this.canBeSaved(opponent)) {
-
+						return false;
+					} else {
+						return true;
 					}
 				}
 				Board.prototype.swap = function(color) {
@@ -346,11 +367,11 @@ console.log(this.checkPaths);
 					// here we check if ANY of the opps pieces can move to one of our checkPath sqs
 					var i, len, dist, direction, j, lngth, moves, moveTo;
 					var resqueSqs = this.checkPaths[opponent];
-					for (sqr in this.positions) {
+					for (var sqr in this.positions) {
 						if (this.positions[sqr] && this.positions[sqr].color == opponent) {
-							for (i = 0, len = resqueSqs.length; i < len; i++) {
-								dist = this.distBtwnSqs(sqr, resqueSqs[i]);
-								if (this.positions[sqr].multiples) {
+							if (this.positions[sqr].multiples) {
+								for (i = 0, len = resqueSqs.length; i < len; i++) {
+									dist = this.distBtwnSqs(sqr, resqueSqs[i]);
 									if (this.validDirection(dist)) {
 										direction = this.validPieceDirection(this.positions[sqr], Math.abs(dist[0]), Math.abs(dist[1]), JSON.stringify(dist));
 										if (direction) {
@@ -359,14 +380,14 @@ console.log(this.checkPaths);
 											}
 										}
 									}
-								} else {
-									// knight or pawn
-									moves = this.positions[sqr].moves;
-									for (j = 0, lngth = moves.length; j < lngth; j++) {
-										moveTo = (~~sqr[0] + moves[j][0]) + "" + (~~sqr[1] + moves[j][1]);
-										if (resqueSqs.indexOf[moveTo] != -1) {
-											return true;
-										}
+								}
+							} else {
+								// knight or pawn
+								moves = this.positions[sqr].moves;
+								for (j = 0, lngth = moves.length; j < lngth; j++) {
+									moveTo = (~~sqr[0] + moves[j][0]) + "" + (~~sqr[1] + moves[j][1]);
+									if (resqueSqs.indexOf[moveTo] != -1) {
+										return true;
 									}
 								}
 							}
@@ -383,7 +404,9 @@ console.log(this.checkPaths);
 				}
 				Board.prototype.possibleKingMove = function(sqs, moves, opponent) {
 					console.log("moves", moves);
-					var i, len, k, lenth, knt, j, lngth, f, ff, s, ss, next, path, strMove;
+					var i, len, k, lenth, knt, j, lngth, p, f, ff, s, ss, next, path, strMove, potentialPawnMove, pawnMoves;
+
+					var validMoves = [];
 					// we have to walk all directions until we hit one of our own, an opponent, or to the end of the board
 					allSqs: for (i = 0, len = sqs.length; i < len; i++) {
 						f = ~~sqs[i][0], s = ~~sqs[i][1];
@@ -396,7 +419,20 @@ console.log(this.checkPaths);
 								continue allSqs;
 							}
 						}
-						// i think we still need to check for pawns here
+						// check for pawns
+						for (p = 0; p < 2; p++) {
+							if (opponent == "black") {
+								pawnMoves = [[-1, -1], [-1, 1]];
+							} else if (opponent == "white") {
+								pawnMoves = [[1, -1], [1, 1]];
+							}
+							potentialPawnMove = (f + pawnMoves[p][0]) + "" + (s + pawnMoves[p][1]);
+							if (this.positions[potentialPawnMove] 
+								&& this.positions[potentialPawnMove].type == "pawn"
+								&& this.positions[potentialPawnMove].color != opponent) {
+								continue allSqs;
+							}
+						}
 					allMoves:	for (j = 0, lngth = moves.length; j < lngth; j++) {
 							// conditions for break:
 							strMove = JSON.stringify(moves[j]);
@@ -420,9 +456,14 @@ console.log(this.checkPaths);
 							}
 						}
 						// we found a free sq
-						return true;
+						validMoves.push(sqs[i]);
 					}
-					return false;
+					if (validMoves.length == 0) {
+						return false;
+					} else {
+						this.check[opponent + "Escapes"] = validMoves;
+						return validMoves;
+					}
 				}
 				Board.prototype.movePiece = function(target, targetEl) {
 					// moves the elements
