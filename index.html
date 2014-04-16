@@ -138,7 +138,6 @@
 				}).call(this);
 
 				this.board.kings = {"white": "74", "black": "04"};
-				console.log(this.board.kings);
 
 				for(i = 0, len = this.board.pieces.length; i<len; i++) {
 					p = this.board.pieces[i];
@@ -214,7 +213,7 @@
 					this.justCastled;
 					this.knightMoves = [[-2,-1], [-2,1], [-1,-2], [-1,2], [1,2], [2,1], [1,-2], [2,-1]];
 					this.check = { "white": false, "black": false, "whiteEscapes": "", "blackEscapes": "" };
-					this.checkPaths = { "white": [], "black": [] };
+					this.checkPaths = { "white": [], "black": [], "whitePathHolder": "", "blackPathHolder": ""};
 console.log(this.checkPaths);
 					this.board = document.getElementById("board");
 					this.rows = document.querySelectorAll("tr"); 
@@ -246,8 +245,8 @@ console.log(this.checkPaths);
 // that.justCastled should be a contender for refactor since we probably shouldn't be calling methods (castle) that move pieces from within validMove, so should we check here whether we're trying to castle? or within movePiece?
 								that.justCastled = false;
 								if (that.validMove(piece, that.selected, target)) {
-									that.setCheck(piece, target);
 									if (!that.justCastled) that.movePiece(target, targetEl);
+									that.setCheck(piece, target);
 									that.turn(that.trn);
 									if (piece.type == "king") that.kings[piece.color] = target;
 								}
@@ -314,7 +313,8 @@ console.log(this.checkPaths);
 							if (typeof pathBlocked == "string") { this.immobile[pathBlocked] = true; }
 							if (!pathBlocked) { 
 								if (!this.checkMate(opponent, distFromKing)) {
-									
+									console.log(this.check);
+									console.log(this.checkPaths);
 								} else {
 									this.gameOver();
 								}
@@ -322,7 +322,7 @@ console.log(this.checkPaths);
 						}
 					}
 					// CAREFUL HERE, but I think we need to reset this every turn.	
-					this.check[opponent + "Escapes"] = ""; 
+					// this.check[opponent + "Escapes"] = ""; 
 				}
 				Board.prototype.gameOver = function() {
 					console.log("gg");
@@ -352,10 +352,11 @@ console.log(this.checkPaths);
 							possibleKingMoves.push(sq);
 						} 
 					}
-					if (this.possibleKingMove(possibleKingMoves, oppKing.moves, opponent)) { 
+					var kingMoves = this.possibleKingMove(possibleKingMoves, oppKing.moves, opponent);
+					console.log(kingMoves, "kingMoves");
+					var canBeSaved = this.canBeSaved(opponent);
+					if (kingMoves.length || canBeSaved) { 
 						return false; 
-					} else if (this.canBeSaved(opponent)) {
-						return false;
 					} else {
 						return true;
 					}
@@ -363,17 +364,22 @@ console.log(this.checkPaths);
 				Board.prototype.swap = function(color) {
 					return color == "white" ? "black" : "white";
 				}
-				Board.prototype.canBeSaved = function(opponent) {
+				Board.prototype.canBeSaved = function(color) {
+console.log("canBeSaved called")
 					// here we check if ANY of the opps pieces can move to one of our checkPath sqs
-					var i, len, dist, direction, j, lngth, moves, moveTo;
-					var resqueSqs = this.checkPaths[opponent];
+					var i, len, dist, direction, j, lngth, moves, moveTo, piece, l, z, pFirstMove, pEatMove, pForwardMove;
+					var resqueSqs = this.checkPaths[color];
 					for (var sqr in this.positions) {
-						if (this.positions[sqr] && this.positions[sqr].color == opponent) {
-							if (this.positions[sqr].multiples) {
+console.log(sqr, "sqr");
+						piece = this.positions[sqr];
+						if (piece && piece.color == color) {
+console.log("same color");
+							if (piece.multiples) {
 								for (i = 0, len = resqueSqs.length; i < len; i++) {
 									dist = this.distBtwnSqs(sqr, resqueSqs[i]);
+console.log(dist, "dist");
 									if (this.validDirection(dist)) {
-										direction = this.validPieceDirection(this.positions[sqr], Math.abs(dist[0]), Math.abs(dist[1]), JSON.stringify(dist));
+										direction = this.validPieceDirection(piece, Math.abs(dist[0]), Math.abs(dist[1]), JSON.stringify(dist));
 										if (direction) {
 											if (this.clearPath(sqr, Math.abs(dist[0]), Math.abs(dist[1]), direction)) {
 												return true;
@@ -381,19 +387,47 @@ console.log(this.checkPaths);
 										}
 									}
 								}
-							} else {
-								// knight or pawn
-								moves = this.positions[sqr].moves;
+							} else if (piece.type == "knight") {
+								moves = piece.moves;
 								for (j = 0, lngth = moves.length; j < lngth; j++) {
 									moveTo = (~~sqr[0] + moves[j][0]) + "" + (~~sqr[1] + moves[j][1]);
-									if (resqueSqs.indexOf[moveTo] != -1) {
+									if (resqueSqs.indexOf(moveTo) != -1) {
 										return true;
 									}
 								}
+							} else {
+								// we're a pawn
+								for (l = 0; l < piece.eat.length; l++) {
+									pEatMove = (~~sqr[0] + piece.eat[l][0]) + "" + (~~sqr[1] + piece.eat[l][1]);
+console.log(this.checkPaths[color + "PathHolder"], "4"*10, pEatMove);
+									if (this.checkPaths[color + "PathHolder"] == pEatMove) {
+										return true;
+									}
+								}
+console.log(piece.firstMoves[0], "5"*10);
+								if (this.pawnLegalMoves(sqr, piece.firstMoves[0], color)) {
+									console.log("this shoudl be true")
+									return true;
+								}
+								if (!piece.moved) {
+									if (this.pawnLegalMoves(sqr, piece.firstMoves[1], color)) {
+										return true;
+									}
+								} 
 							}
 						}
 					}
 					return false;
+				}
+				Board.prototype.pawnLegalMoves = function(sqr, move, color) {
+					var mv;
+console.log("move", move);
+					mv = (~~sqr[0] + move[0]) + "" + (~~sqr[1] + move[1]);
+console.log(mv);
+console.log(this.checkPaths[color]);
+					if (this.checkPaths[color].indexOf(mv) != -1) {
+						return true;
+					} 
 				}
 				Board.prototype.sqsToShift = function(from, to) {
 					// takes 2 sqs and returns an array of the shift we're trying to make
@@ -403,9 +437,7 @@ console.log(this.checkPaths);
 
 				}
 				Board.prototype.possibleKingMove = function(sqs, moves, opponent) {
-					console.log("moves", moves);
 					var i, len, k, lenth, knt, j, lngth, p, f, ff, s, ss, next, path, strMove, potentialPawnMove, pawnMoves;
-
 					var validMoves = [];
 					// we have to walk all directions until we hit one of our own, an opponent, or to the end of the board
 					allSqs: for (i = 0, len = sqs.length; i < len; i++) {
@@ -438,7 +470,7 @@ console.log(this.checkPaths);
 							strMove = JSON.stringify(moves[j]);
 							ff = f, ss = s;
 							// we reach the end of the board
-							while (ff < 8 && ff >= 0 && ss < 8 && ss >= 0) {
+							while (ff < 7 && ff > 0 && ss < 7 && ss > 0) {
 								ff += moves[j][0];
 								ss += moves[j][1];
 								next = ff + "" + ss;
@@ -458,12 +490,10 @@ console.log(this.checkPaths);
 						// we found a free sq
 						validMoves.push(sqs[i]);
 					}
-					if (validMoves.length == 0) {
-						return false;
-					} else {
+					if (validMoves.length > 0) {
 						this.check[opponent + "Escapes"] = validMoves;
-						return validMoves;
 					}
+					return validMoves;
 				}
 				Board.prototype.movePiece = function(target, targetEl) {
 					// moves the elements
@@ -507,11 +537,9 @@ console.log(this.checkPaths);
  					} else {
  						// we are not a pawn
  						// check if we're a king that's trying to castle 
-console.log(piece.type, !piece.moved);
  						if (piece.type == "king" 
  							&& !piece.moved
  							&& JSON.stringify(piece.castleMoves).indexOf(desiredStr) != -1) { 
-console.log("im a unmoved king with a valid move in the books");
  							fromRow = from[0];
  							if (desiredShift[1] < 0) {
  								// trying to castle left
@@ -524,7 +552,6 @@ console.log("im a unmoved king with a valid move in the books");
  									this.castle(piece,from,to,cornerPiece,fromRow+0,fromRow+3);
  									this.justCastled = true;
  									return true;
- 								console.log("castleLeft");
  								}
  							} else {
  								// trying to castle right
@@ -537,7 +564,6 @@ console.log("im a unmoved king with a valid move in the books");
  									this.castle(piece,from,to,cornerPiece,fromRow+7,fromRow+5);
  									this.justCastled = true;
  									return true;
- 								console.log("castleRight");
  								}
  							}
 						}
@@ -645,8 +671,11 @@ console.log("im a unmoved king with a valid move in the books");
 						}
 						// this means we checked all the squares and there was nothing
 						// save them in the check path
-						inBtwnSqs.push(from);
-						if (opponent) this.checkPaths[opponent] = inBtwnSqs;
+console.log("OPOONENT", opponent);
+						if (opponent) { 
+							this.checkPaths[opponent] = inBtwnSqs; 
+							this.checkPaths[opponent + "PathHolder"] = from;
+						}
 						return false;
  					} else {
  						return true;
