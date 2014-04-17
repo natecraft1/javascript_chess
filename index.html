@@ -253,9 +253,10 @@
 								}
 								if (clearOfCheck && that.validMove(piece, that.selected, target)) {
 									if (!that.justCastled) that.movePiece(target, targetEl);
-// next we have to get rid of check, and possibly the check path.
 									that.setCheck(piece, target);
 									that.turn(that.trn);
+console.log(that.check);
+console.log(that.checkPaths);
 									if (piece.type == "king") that.kings[piece.color] = target;
 								}
 							}
@@ -277,13 +278,10 @@
 
 				Board.prototype.setCheck = function(piece, newSq) {
 					// are they in check?
-console.log(this.trn);
-
 					if (this.check[piece.color]) {
 						this.resetCheckProperties(piece, newSq);
 						return;
 					}
-					// this.check[this.trn]
 					var opponent = this.trn == "white" ? "black" : "white";
 					var oppInCheck = this.check[opponent];
 					var type = piece.type;
@@ -320,10 +318,13 @@ console.log(this.trn);
 							// it's possible that the opp is in check
 							// if it's not impeded opp is in check
 							if (piece.multiples) {
+console.log(pathBlocked);
 								pathBlocked = this.pathBlocked(piece, distFromKing, JSON.stringify(distFromKing), newSq, opponent);
+console.log(pathBlocked);
 							}
 							this.check[opponent] = !pathBlocked;
-							if (typeof pathBlocked == "string") { this.immobile[pathBlocked] = true; }
+console.log(pathBlocked, "pathBlocked");
+							// if (typeof pathBlocked == "object") { console.log("hello world"); this.immobile[pathBlocked] = true; }
 							if (!pathBlocked) { 
 								if (!this.checkMate(opponent, distFromKing)) {
 								} else {
@@ -524,13 +525,14 @@ console.log(this.trn);
 					var pathHolder = this.checkPaths[piece.color + "PathHolder"];
 					if (this.checkPaths[piece.color + "PathHolder"] == to 
 						|| this.check[piece.color + "Escapes"].indexOf(to) != -1) {
-						// you clear the path and pathholder IF the pathholder is eaten or you
-						// the king moves
+// you clear the path and pathholder IF the pathholder is eaten or you the king moves
 						this.checkPaths[piece.color + "PathHolder"] = "";
 						this.checkPaths[piece.color] = [];
 
 					} else if (this.checkPaths[piece.color].indexOf(to) != -1) {
 console.log("path blocked by another piece");
+						// what happens now? 
+						// we need to watch and see if 
 					}  else {
 console.log("THIS SHOULDNT BE HAPPENING");
 					}
@@ -682,12 +684,14 @@ console.log("THIS SHOULDNT BE HAPPENING");
  				Board.prototype.pathBlocked = function(piece, desiredShift, desiredStr, from, opponent) {
  					// var opponent = this.trn == "white" ? "black" : "white";
  					var non_zero, direction, inBtwnSq, r, c, i, j, len, startArr, inBtwnSqs;
+ 					var blockers = [];
  				// 	r = Math.abs(desiredShift[0]), c = Math.abs(desiredShift[1]);
  					startArr = [~~from[0],~~from[1]];
  					r = Math.abs(desiredShift[0]), c = Math.abs(desiredShift[1]);
 
 					// does one of our available moves match the desired move?
 					var validPD = this.validPieceDirection(piece, r, c, desiredStr);
+console.log("validpd", validPD);
  					if (validPD) {
 						direction = validPD;
 						inBtwnSqs = [];
@@ -697,20 +701,17 @@ console.log("THIS SHOULDNT BE HAPPENING");
 							startArr[0] = startArr[0] + direction[0];
 							startArr[1] = startArr[1] + direction[1];
 							inBtwnSq = startArr[0] + "" + startArr[1];
-							if (this.positions[inBtwnSq]) { 
-								inBtwnSqs = [];
-								return inBtwnSq; 
-							} else {
-								inBtwnSqs.push(inBtwnSq);
-							}
+console.log("inBtwnSq", inBtwnSq);
+							inBtwnSqs.push(inBtwnSq);
+							if (this.positions[inBtwnSq]) blockers.push(inBtwnSq);
 						}
-						// this means we checked all the squares and there was nothing
 						// save them in the check path
 						if (opponent) { 
 							this.checkPaths[opponent] = inBtwnSqs; 
 							this.checkPaths[opponent + "PathHolder"] = from;
 						}
-						return false;
+						// this means we checked all the squares and there was nothing
+						return blockers.length > 0 ? blockers : false;
  					} else {
  						return true;
  					}
