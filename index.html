@@ -214,7 +214,6 @@
 					this.knightMoves = [[-2,-1], [-2,1], [-1,-2], [-1,2], [1,2], [2,1], [1,-2], [2,-1]];
 					this.check = { "white": false, "black": false, "whiteEscapes": "", "blackEscapes": "" };
 					this.checkPaths = { "white": [], "black": [], "whitePathHolder": "", "blackPathHolder": ""};
-console.log(this.checkPaths);
 					this.board = document.getElementById("board");
 					this.rows = document.querySelectorAll("tr"); 
 					for (i = 0, len = this.rows.length; i < len; i++) {
@@ -222,7 +221,7 @@ console.log(this.checkPaths);
 					}
 					this.board.onclick = function(e) {
 						// what did we click on?
-						var clicked = e.target, target, valid, piece;
+						var clicked = e.target, target, valid, piece, clearOfCheck;
 						if (clicked.tagName == "TD") {
 							targetEl = clicked;
 							target = clicked.className.split(" ")[0];
@@ -244,7 +243,15 @@ console.log(this.checkPaths);
 							} else {
 // that.justCastled should be a contender for refactor since we probably shouldn't be calling methods (castle) that move pieces from within validMove, so should we check here whether we're trying to castle? or within movePiece?
 								that.justCastled = false;
-								if (that.validMove(piece, that.selected, target)) {
+// if we're in check we need to check for both validmoveincheck as well as valid move, else, just validmove
+								if (!that.check[piece.color]) {
+									clearOfCheck = true;
+								} else {
+									if (that.validMoveInCheck(piece, target)) {
+										clearOfCheck = true;
+									} else { clearOfCheck = false; }
+								}
+								if (clearOfCheck && that.validMove(piece, that.selected, target)) {
 									if (!that.justCastled) that.movePiece(target, targetEl);
 									that.setCheck(piece, target);
 									that.turn(that.trn);
@@ -268,10 +275,6 @@ console.log(this.checkPaths);
 				}
 				Board.prototype.setCheck = function(piece, newSq) {
 					// are they in check?
-					console.log(this.checkPaths);
-
-					console.log(piece, newSq);
-					console.log(this.trn);
 					var opponent = this.trn == "white" ? "black" : "white";
 					var oppInCheck = this.check[opponent];
 					var type = piece.type;
@@ -307,7 +310,6 @@ console.log(this.checkPaths);
 						if (this.validDirection(distFromKing)) {
 							// it's possible that the opp is in check
 							// if it's not impeded opp is in check
-							console.log("OPPONENT", opponent);
 							if (piece.multiples) {
 								pathBlocked = this.pathBlocked(piece, distFromKing, JSON.stringify(distFromKing), newSq, opponent);
 							}
@@ -316,8 +318,6 @@ console.log(this.checkPaths);
 							if (typeof pathBlocked == "string") { this.immobile[pathBlocked] = true; }
 							if (!pathBlocked) { 
 								if (!this.checkMate(opponent, distFromKing)) {
-									console.log(this.check);
-									console.log(this.checkPaths);
 								} else {
 									this.gameOver();
 								}
@@ -331,7 +331,6 @@ console.log(this.checkPaths);
 					console.log("gg");
 				}
 				Board.prototype.checkMate = function(opponent, distFromKing) {
-					console.log("checkMate called");
 					var i, len, sq;
 					var oppKingSq = this.kings[opponent];
 					var oppKing = this.positions[oppKingSq];
@@ -356,7 +355,6 @@ console.log(this.checkPaths);
 						} 
 					}
 					var kingMoves = this.possibleKingMove(possibleKingMoves, oppKing.moves, opponent);
-					console.log(kingMoves, "kingMoves");
 					var canBeSaved = this.canBeSaved(opponent);
 					if (kingMoves.length || canBeSaved) { 
 						return false; 
@@ -368,24 +366,18 @@ console.log(this.checkPaths);
 					return color == "white" ? "black" : "white";
 				}
 				Board.prototype.canBeSaved = function(color) {
-console.log("canBeSaved called")
 					// here we check if ANY of the opps pieces can move to one of our checkPath sqs
 					var i, len, dist, direction, j, lngth, moves, moveTo, piece, l, z, pFirstMove, pEatMove, pForwardMove;
 					var resqueSqs = this.checkPaths[color];
-console.log(resqueSqs, "resqueSqs");
 					for (var sqr in this.positions) {
-console.log(sqr, "sqr");
 						piece = this.positions[sqr];
 						if (piece && piece.color == color) {
-console.log("same color");
 							if (piece.multiples) {
 								for (i = 0, len = resqueSqs.length; i < len; i++) {
 									dist = this.distBtwnSqs(sqr, resqueSqs[i]);
-console.log(dist, "dist");
-console.log(resqueSqs[i]);
+
 									if (this.validDirection(dist)) {
 										direction = this.validPieceDirection(piece, Math.abs(dist[0]), Math.abs(dist[1]), JSON.stringify(dist));
-console.log(direction, "driection");
 										if (direction) {
 											if (this.clearPath(sqr, Math.abs(dist[0]), Math.abs(dist[1]), direction)) {
 												return true;
@@ -410,7 +402,6 @@ console.log(direction, "driection");
 									}
 								}
 								if (this.pawnLegalMoves(sqr, piece.firstMoves[0], color)) {
-									console.log("this shoudl be true")
 									return true;
 								}
 								if (!piece.moved) {
@@ -510,7 +501,20 @@ console.log(direction, "driection");
 					this.selected = null;
 					this.selectedEl = null;
 				}
+				Board.prototype.validMoveInCheck = function(piece, to) {
+					if (piece.type == "king" 
+						&& this.check[piece.color + "Escapes"].indexOf(to)) {
+						this.check[piece.color] = false;
+						return true;
+					} else {
+						if (this.checkPaths[piece.color].indexOf(to) != -1 
+							|| this.checkPaths[piece.color + "PathHolder"] == to) {
+							return true;
+						} 
+					}
+				}
  				Board.prototype.validMove = function(piece, from, to) {
+					// are we already in check??					
  					var desiredShift = this.distBtwnSqs(from, to);
  					var desiredStr = JSON.stringify(desiredShift);
  					var spotTaken = this.spotTaken(to);
@@ -521,6 +525,7 @@ console.log(direction, "driection");
 						if (JSON.stringify(piece.moves).indexOf(desiredStr) != -1) {
 							if (!spotTaken) {
 								if (!piece.moved) piece.moved = true;
+// return to
 								return true;
 							}	
 // are we trying to eat a piece?
@@ -676,7 +681,6 @@ console.log(direction, "driection");
 						}
 						// this means we checked all the squares and there was nothing
 						// save them in the check path
-console.log("OPOONENT", opponent);
 						if (opponent) { 
 							this.checkPaths[opponent] = inBtwnSqs; 
 							this.checkPaths[opponent + "PathHolder"] = from;
