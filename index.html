@@ -212,7 +212,7 @@
 					this.trn = "white";
 					this.justCastled;
 					this.knightMoves = [[-2,-1], [-2,1], [-1,-2], [-1,2], [1,2], [2,1], [1,-2], [2,-1]];
-					this.check = { "white": false, "black": false, "whiteEscapes": "", "blackEscapes": "" };
+					this.check = { "white": false, "black": false, "whiteEscapes": [], "blackEscapes": [] };
 					this.checkPaths = { "white": [], "black": [], "whitePathHolder": "", "blackPathHolder": ""};
 					this.board = document.getElementById("board");
 					this.rows = document.querySelectorAll("tr"); 
@@ -253,6 +253,7 @@
 								}
 								if (clearOfCheck && that.validMove(piece, that.selected, target)) {
 									if (!that.justCastled) that.movePiece(target, targetEl);
+// next we have to get rid of check, and possibly the check path.
 									that.setCheck(piece, target);
 									that.turn(that.trn);
 									if (piece.type == "king") that.kings[piece.color] = target;
@@ -273,8 +274,16 @@
 						} 
 					}
 				}
+
 				Board.prototype.setCheck = function(piece, newSq) {
 					// are they in check?
+console.log(this.trn);
+
+					if (this.check[piece.color]) {
+						this.resetCheckProperties(piece, newSq);
+						return;
+					}
+					// this.check[this.trn]
 					var opponent = this.trn == "white" ? "black" : "white";
 					var oppInCheck = this.check[opponent];
 					var type = piece.type;
@@ -313,7 +322,6 @@
 							if (piece.multiples) {
 								pathBlocked = this.pathBlocked(piece, distFromKing, JSON.stringify(distFromKing), newSq, opponent);
 							}
-							
 							this.check[opponent] = !pathBlocked;
 							if (typeof pathBlocked == "string") { this.immobile[pathBlocked] = true; }
 							if (!pathBlocked) { 
@@ -324,8 +332,6 @@
 							}
 						}
 					}
-					// CAREFUL HERE, but I think we need to reset this every turn.	
-					// this.check[opponent + "Escapes"] = ""; 
 				}
 				Board.prototype.gameOver = function() {
 					console.log("gg");
@@ -367,7 +373,7 @@
 				}
 				Board.prototype.canBeSaved = function(color) {
 					// here we check if ANY of the opps pieces can move to one of our checkPath sqs
-					var i, len, dist, direction, j, lngth, moves, moveTo, piece, l, z, pFirstMove, pEatMove, pForwardMove;
+					var i, p, lth, len, dist, direction, j, lngth, moves, moveTo, piece, l, z, pFirstMove, pEatMove, pForwardMove;
 					var resqueSqs = this.checkPaths[color];
 					for (var sqr in this.positions) {
 						piece = this.positions[sqr];
@@ -512,6 +518,25 @@
 							return true;
 						} 
 					}
+				}
+				Board.prototype.resetCheckProperties = function(piece, to) {	
+					// this.check[piece.color + "Escapes"] = that pieces options  
+					var pathHolder = this.checkPaths[piece.color + "PathHolder"];
+					if (this.checkPaths[piece.color + "PathHolder"] == to 
+						|| this.check[piece.color + "Escapes"].indexOf(to) != -1) {
+						// you clear the path and pathholder IF the pathholder is eaten or you
+						// the king moves
+						this.checkPaths[piece.color + "PathHolder"] = "";
+						this.checkPaths[piece.color] = [];
+
+					} else if (this.checkPaths[piece.color].indexOf(to) != -1) {
+console.log("path blocked by another piece");
+					}  else {
+console.log("THIS SHOULDNT BE HAPPENING");
+					}
+					this.check[piece.color + "Escapes"] = [];
+					this.check[piece.color] = false;
+				
 				}
  				Board.prototype.validMove = function(piece, from, to) {
 					// are we already in check??					
