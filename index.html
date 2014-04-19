@@ -245,7 +245,8 @@
 // that.justCastled should be a contender for refactor since we probably shouldn't be calling methods (castle) that move pieces from within validMove, so should we check here whether we're trying to castle? or within movePiece?
 								that.justCastled = false;
 // if we're in check we need to check for both validmoveincheck as well as valid move, else, just validmove
-								that.checkOppPaths(that.selected, target, piece.color);
+								var path = that.checkOppPaths(that.selected, target, piece.color);
+								// that.checkOppPaths(that.selected, target, that.swap(piece.color))
 								if (!that.check[piece.color]) {
 									clearOfCheck = true;
 								} else {
@@ -253,16 +254,19 @@
 										clearOfCheck = true;
 									} else { clearOfCheck = false; }
 								}
-								if (clearOfCheck 
+								if (clearOfCheck && path
 									&& that.immobile[piece.color] != that.selected
-									&& that.validMove(piece, that.selected, target)) {
+									&& that.validMove(piece, that.selected, target)
+								) {
+									if (that.checkPaths[piece.color].indexOf(target) != -1) {
+										that.immobile[piece.color] = null;
+									}
 									if (!that.justCastled) that.movePiece(target, targetEl);
 									that.setCheck(piece, target);
 									that.turn(that.trn);
 console.log("immobile", that.immobile);
 									// if you make a valid move, and it's into one of the opps' path sqs
-console.log(that.check);
-console.log(that.checkPaths);
+
 									if (piece.type == "king") that.kings[piece.color] = target;
 								}
 							}
@@ -341,30 +345,35 @@ console.log(that.checkPaths);
 					console.log("gg");
 				}
 				Board.prototype.checkOppPaths = function(from, to, color) {
-					var opp = this.swap(color), i, lngth, paths;
-					var paths = this.checkPaths[opp];
+					var paths = this.checkPaths[color];
+					var pathholder = this.checkPaths[color + "PathHolder"];
+					var blockers = [];
 					if (paths.length > 0) {
 						// are we trying to move from or to the path?
 						if (paths.indexOf(from) != -1) {
+							// if we're trying to eat the pathholder, we'll let validmove handle it
+							if (pathholder == to) return true;
 							// allowed if there's another piece in the path - pathholder
 							for (i = 0, lngth = paths.length; i < lngth; i++) {
+								// check if there's another piece in the path that isn't the offending piece, or the piece we started with
 								if (this.positions[paths[i]] 
-									&& paths[i] != this.checkPaths[opp + "PathHolder"]) {
-									return true;
+									&& paths[i] != pathholder
+									&& paths[i] != from) {
+									blockers.push(paths[i]);
 								}
 							}
-							// didnt find somehting else in the path;
+							// didnt find something else in the path;
 							// we return false because you can't move from a sq if it will put u in check
-							return false;
-						} else if (paths.indexOf(to) != -1) {
-
-						} else {
-
-						}
-					} else {
-						return true;
+							if (blockers.length == 1) { 
+								this.immobilize(blockers[0], color) 
+							} else if (blockers.length > 1) {
+								return true;
+							} else {
+								return false;
+							}
+						} 
 					}
-					
+					return true;
 				}
 				Board.prototype.checkMate = function(opponent, distFromKing) {
 					var i, len, sq;
@@ -550,7 +559,7 @@ console.log(that.checkPaths);
 					}
 				}
 				Board.prototype.resetCheckProperties = function(piece, to) {	
-console.log("RESETCHECKCALLED", piece.color)
+
 					// this.check[piece.color + "Escapes"] = that pieces options  
 					var pathHolder = this.checkPaths[piece.color + "PathHolder"];
 					if (this.checkPaths[piece.color + "PathHolder"] == to 
@@ -561,9 +570,8 @@ console.log("RESETCHECKCALLED", piece.color)
 						this.immobile[piece.color] = null;
 
 					} else if (this.checkPaths[piece.color].indexOf(to) != -1) {
-console.log("path blocked by another piece");
-						this.immobilize(to);
-console.log(this.immobile, "immobile");
+console.log("setting", to, "as immobile");
+						this.immobilize(to, piece.color);
 
 						// what happens now? 
 						// we need to watch and see if 
@@ -726,7 +734,6 @@ console.log("THIS SHOULDNT BE HAPPENING");
 
 					// does one of our available moves match the desired move?
 					var validPD = this.validPieceDirection(piece, r, c, desiredStr);
-console.log("validpd", validPD);
  					if (validPD) {
 						direction = validPD;
 						inBtwnSqs = [];
@@ -736,7 +743,6 @@ console.log("validpd", validPD);
 							startArr[0] = startArr[0] + direction[0];
 							startArr[1] = startArr[1] + direction[1];
 							inBtwnSq = startArr[0] + "" + startArr[1];
-console.log("inBtwnSq", inBtwnSq);
 							inBtwnSqs.push(inBtwnSq);
 							if (this.positions[inBtwnSq]) blockers.push(inBtwnSq);
 						}
@@ -755,6 +761,7 @@ console.log(this.immobile, "this.immobile");
  				}
  				Board.prototype.immobilize = function(sq, color) {
  					// this will probably have to be an array bc of multiple pathholders
+console.log("setting", sq, "to immobile");
  					this.immobile[color] = sq;
  				}
 				Board.prototype.setSquares = function(row, index) {
