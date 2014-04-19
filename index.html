@@ -214,6 +214,7 @@
 					this.knightMoves = [[-2,-1], [-2,1], [-1,-2], [-1,2], [1,2], [2,1], [1,-2], [2,-1]];
 					this.check = { "white": false, "black": false, "whiteEscapes": [], "blackEscapes": [] };
 					this.checkPaths = { "white": [], "black": [], "whitePathHolder": "", "blackPathHolder": ""};
+					this.immobile = {"white": null, "black": null};
 					this.board = document.getElementById("board");
 					this.rows = document.querySelectorAll("tr"); 
 					for (i = 0, len = this.rows.length; i < len; i++) {
@@ -244,6 +245,7 @@
 // that.justCastled should be a contender for refactor since we probably shouldn't be calling methods (castle) that move pieces from within validMove, so should we check here whether we're trying to castle? or within movePiece?
 								that.justCastled = false;
 // if we're in check we need to check for both validmoveincheck as well as valid move, else, just validmove
+								that.checkOppPaths(that.selected, target, piece.color);
 								if (!that.check[piece.color]) {
 									clearOfCheck = true;
 								} else {
@@ -251,10 +253,14 @@
 										clearOfCheck = true;
 									} else { clearOfCheck = false; }
 								}
-								if (clearOfCheck && that.validMove(piece, that.selected, target)) {
+								if (clearOfCheck 
+									&& that.immobile[piece.color] != that.selected
+									&& that.validMove(piece, that.selected, target)) {
 									if (!that.justCastled) that.movePiece(target, targetEl);
 									that.setCheck(piece, target);
 									that.turn(that.trn);
+console.log("immobile", that.immobile);
+									// if you make a valid move, and it's into one of the opps' path sqs
 console.log(that.check);
 console.log(that.checkPaths);
 									if (piece.type == "king") that.kings[piece.color] = target;
@@ -318,12 +324,9 @@ console.log(that.checkPaths);
 							// it's possible that the opp is in check
 							// if it's not impeded opp is in check
 							if (piece.multiples) {
-console.log(pathBlocked);
 								pathBlocked = this.pathBlocked(piece, distFromKing, JSON.stringify(distFromKing), newSq, opponent);
-console.log(pathBlocked);
 							}
 							this.check[opponent] = !pathBlocked;
-console.log(pathBlocked, "pathBlocked");
 							// if (typeof pathBlocked == "object") { console.log("hello world"); this.immobile[pathBlocked] = true; }
 							if (!pathBlocked) { 
 								if (!this.checkMate(opponent, distFromKing)) {
@@ -336,6 +339,32 @@ console.log(pathBlocked, "pathBlocked");
 				}
 				Board.prototype.gameOver = function() {
 					console.log("gg");
+				}
+				Board.prototype.checkOppPaths = function(from, to, color) {
+					var opp = this.swap(color), i, lngth, paths;
+					var paths = this.checkPaths[opp];
+					if (paths.length > 0) {
+						// are we trying to move from or to the path?
+						if (paths.indexOf(from) != -1) {
+							// allowed if there's another piece in the path - pathholder
+							for (i = 0, lngth = paths.length; i < lngth; i++) {
+								if (this.positions[paths[i]] 
+									&& paths[i] != this.checkPaths[opp + "PathHolder"]) {
+									return true;
+								}
+							}
+							// didnt find somehting else in the path;
+							// we return false because you can't move from a sq if it will put u in check
+							return false;
+						} else if (paths.indexOf(to) != -1) {
+
+						} else {
+
+						}
+					} else {
+						return true;
+					}
+					
 				}
 				Board.prototype.checkMate = function(opponent, distFromKing) {
 					var i, len, sq;
@@ -521,16 +550,21 @@ console.log(pathBlocked, "pathBlocked");
 					}
 				}
 				Board.prototype.resetCheckProperties = function(piece, to) {	
+console.log("RESETCHECKCALLED", piece.color)
 					// this.check[piece.color + "Escapes"] = that pieces options  
 					var pathHolder = this.checkPaths[piece.color + "PathHolder"];
 					if (this.checkPaths[piece.color + "PathHolder"] == to 
 						|| this.check[piece.color + "Escapes"].indexOf(to) != -1) {
-// you clear the path and pathholder IF the pathholder is eaten or you the king moves
+// you clear the path and pathholder IF the pathholder is eaten or the king moves
 						this.checkPaths[piece.color + "PathHolder"] = "";
 						this.checkPaths[piece.color] = [];
+						this.immobile[piece.color] = null;
 
 					} else if (this.checkPaths[piece.color].indexOf(to) != -1) {
 console.log("path blocked by another piece");
+						this.immobilize(to);
+console.log(this.immobile, "immobile");
+
 						// what happens now? 
 						// we need to watch and see if 
 					}  else {
@@ -682,6 +716,7 @@ console.log("THIS SHOULDNT BE HAPPENING");
 					return true;
  				}
  				Board.prototype.pathBlocked = function(piece, desiredShift, desiredStr, from, opponent) {
+
  					// var opponent = this.trn == "white" ? "black" : "white";
  					var non_zero, direction, inBtwnSq, r, c, i, j, len, startArr, inBtwnSqs;
  					var blockers = [];
@@ -711,12 +746,17 @@ console.log("inBtwnSq", inBtwnSq);
 							this.checkPaths[opponent + "PathHolder"] = from;
 						}
 						// this means we checked all the squares and there was nothing
+						if (blockers.length == 1) this.immobilize(blockers[0], opponent);
+console.log(this.immobile, "this.immobile");
 						return blockers.length > 0 ? blockers : false;
  					} else {
  						return true;
  					}
  				}
-
+ 				Board.prototype.immobilize = function(sq, color) {
+ 					// this will probably have to be an array bc of multiple pathholders
+ 					this.immobile[color] = sq;
+ 				}
 				Board.prototype.setSquares = function(row, index) {
 					var i, len, color;
 					var cols = row.querySelectorAll("td");
