@@ -246,7 +246,10 @@
 								that.justCastled = false;
 // if we're in check we need to check for both validmoveincheck as well as valid move, else, just validmove
 								var path = that.checkOppPaths(that.selected, target, piece.color);
-								// that.checkOppPaths(that.selected, target, that.swap(piece.color))
+// immobile if the piece we selected is immobile unless it's trying to eat the pathholder
+								// var mobile = that.immobile[piece.color] != that.selected || target == that.checkPaths[piece.color + "PathHolder"];
+console.log(that.checkPaths);
+console.log(that.check);
 								if (!that.check[piece.color]) {
 									clearOfCheck = true;
 								} else {
@@ -255,12 +258,10 @@
 									} else { clearOfCheck = false; }
 								}
 								if (clearOfCheck && path
-									&& that.immobile[piece.color] != that.selected
 									&& that.validMove(piece, that.selected, target)
 								) {
-									if (that.checkPaths[piece.color].indexOf(target) != -1) {
-										that.immobile[piece.color] = null;
-									}
+									that.mobilize(piece.color, target);
+			
 									if (!that.justCastled) that.movePiece(target, targetEl);
 									that.setCheck(piece, target);
 									that.turn(that.trn);
@@ -285,10 +286,20 @@ console.log("immobile", that.immobile);
 						} 
 					}
 				}
-
+				Board.prototype.mobilize = function(color, to) {
+					// if another piece moves into the path, there is no immobile piece
+					if (this.checkPaths[color].indexOf(to) != -1) {
+						this.immobile[color] = null;
+					}
+					if (this.checkPaths[color + "PathHolder"] == to) {
+						this.immobile[color] = null;
+						this.immobile[color + "PathHolder"] = "";
+					}
+				}
 				Board.prototype.setCheck = function(piece, newSq) {
 					// are they in check?
 					if (this.check[piece.color]) {
+console.log("check please");
 						this.resetCheckProperties(piece, newSq);
 						return;
 					}
@@ -348,6 +359,7 @@ console.log("immobile", that.immobile);
 					var paths = this.checkPaths[color];
 					var pathholder = this.checkPaths[color + "PathHolder"];
 					var blockers = [];
+					// that.immobile[piece.color] != that.selected || target == that.checkPaths[piece.color + "PathHolder"];
 					if (paths.length > 0) {
 						// are we trying to move from or to the path?
 						if (paths.indexOf(from) != -1) {
@@ -380,19 +392,22 @@ console.log("immobile", that.immobile);
 					var oppKingSq = this.kings[opponent];
 					var oppKing = this.positions[oppKingSq];
 					var possibleKingMoves = [];
+console.log(oppKing);
 					var surroundingSqs = (function() {
 						var arr = [];
 						var i, len, f, s, combined;
 						for (i = 0, len = oppKing.moves.length; i<len; i++) {
 							f = ~~oppKingSq[0] + oppKing.moves[i][0];
-							s = ~~oppKingSq + oppKing.moves[i][1];
+							s = ~~oppKingSq[1] + oppKing.moves[i][1];
 						  combined = f + "" + s;
+console.log(combined);
 						  if (combined in this.positions) {
 						  	arr.push(combined);
 						  }
 						}
 						return arr;
 					}).call(this);
+console.log(surroundingSqs);
 					for (i = 0, len = surroundingSqs.length; i < len; i++) {
 						sq = surroundingSqs[i];
 						if (!this.positions[sq] || this.positions[sq].color !== opponent) {
@@ -400,6 +415,7 @@ console.log("immobile", that.immobile);
 						} 
 					}
 					var kingMoves = this.possibleKingMove(possibleKingMoves, oppKing.moves, opponent);
+console.log(kingMoves);
 					var canBeSaved = this.canBeSaved(opponent);
 					if (kingMoves.length || canBeSaved) { 
 						return false; 
@@ -477,6 +493,7 @@ console.log("immobile", that.immobile);
 					var i, len, k, lenth, knt, j, lngth, p, f, ff, s, ss, next, path, strMove, potentialPawnMove, pawnMoves;
 					var validMoves = [];
 					// we have to walk all directions until we hit one of our own, an opponent, or to the end of the board
+console.log(sqs, "sqs");
 					allSqs: for (i = 0, len = sqs.length; i < len; i++) {
 						f = ~~sqs[i][0], s = ~~sqs[i][1];
 						// check for knights
@@ -502,7 +519,7 @@ console.log("immobile", that.immobile);
 								continue allSqs;
 							}
 						}
-					allMoves:	for (j = 0, lngth = moves.length; j < lngth; j++) {
+						allMoves:	for (j = 0, lngth = moves.length; j < lngth; j++) {
 							// conditions for break:
 							strMove = JSON.stringify(moves[j]);
 							ff = f, ss = s;
@@ -547,10 +564,16 @@ console.log("immobile", that.immobile);
 					this.selectedEl = null;
 				}
 				Board.prototype.validMoveInCheck = function(piece, to) {
-					if (piece.type == "king" 
-						&& this.check[piece.color + "Escapes"].indexOf(to)) {
-						this.check[piece.color] = false;
-						return true;
+					if (piece.type == "king") {
+						if (this.check[piece.color + "Escapes"].indexOf(to) != -1) {
+							this.check[piece.color] = false;
+							return true;
+						} else {
+							return false;
+						}
+console.log("IM THE KING OF THE WOOOORLD")
+
+						
 					} else {
 						if (this.checkPaths[piece.color].indexOf(to) != -1 
 							|| this.checkPaths[piece.color + "PathHolder"] == to) {
@@ -570,8 +593,8 @@ console.log("immobile", that.immobile);
 						this.immobile[piece.color] = null;
 
 					} else if (this.checkPaths[piece.color].indexOf(to) != -1) {
-console.log("setting", to, "as immobile");
 						this.immobilize(to, piece.color);
+						console.log(this.immobile);
 
 						// what happens now? 
 						// we need to watch and see if 
@@ -753,7 +776,6 @@ console.log("THIS SHOULDNT BE HAPPENING");
 						}
 						// this means we checked all the squares and there was nothing
 						if (blockers.length == 1) this.immobilize(blockers[0], opponent);
-console.log(this.immobile, "this.immobile");
 						return blockers.length > 0 ? blockers : false;
  					} else {
  						return true;
@@ -761,7 +783,6 @@ console.log(this.immobile, "this.immobile");
  				}
  				Board.prototype.immobilize = function(sq, color) {
  					// this will probably have to be an array bc of multiple pathholders
-console.log("setting", sq, "to immobile");
  					this.immobile[color] = sq;
  				}
 				Board.prototype.setSquares = function(row, index) {
