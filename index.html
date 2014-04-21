@@ -522,6 +522,7 @@ console.log("KNIGHT KNIGHT");
 								pawnMoves = [[1, -1], [1, 1]];
 							}
 							potentialPawnMove = (f + pawnMoves[p][0]) + "" + (s + pawnMoves[p][1]);
+console.log(potentialPawnMove, "potentialPawnMove")
 							if (this.positions[potentialPawnMove] 
 								&& this.positions[potentialPawnMove].type == "pawn"
 								&& this.positions[potentialPawnMove].color != opponent) {
@@ -538,11 +539,13 @@ console.log("CALLED")
 							// conditions for break:
 							strMove = JSON.stringify(moves[j]);
 							ff = f, ss = s;
+							console.log(ff,ss);
 							// we reach the end of the board
-							while (ff < 7 && ff > 0 && ss < 7 && ss > 0) {
+							while (ff+moves[j][0] <= 7 && ff+moves[j][0] >= 0 && ss+moves[j][1] <= 7 && ss+moves[j][1] >= 0) {
 								ff += moves[j][0];
 								ss += moves[j][1];
 								next = ff + "" + ss;
+console.log("next", next);
 								if (this.positions[next]) {
 									if (this.positions[next].color == opponent) {
 										// we hit our own piece
@@ -656,7 +659,7 @@ console.log("THIS SHOULDNT BE HAPPENING");
  							if (this.canCastle(fromRow, desiredShift, piece, from, to)) {
  								this.justCastled = true;
  								return true;
- 							}
+ 							} else { return false; }
 						}
 						if (piece.multiples && (Math.abs(desiredShift[0]) > 1 || Math.abs(desiredShift[1]) > 1)) {
 							// here we check if there's anything in our way
@@ -690,7 +693,7 @@ console.log("THIS SHOULDNT BE HAPPENING");
  						emptySqs = [fromRow + 1, fromRow + 2, fromRow + 3].filter(function(x) {
  							return !that.positions[x];
  						});
- 						pathsClear = this.possibleKingMove(emptySqs.slice(0), piece.moves, this.swap(piece.color), true);
+ 						pathsClear = this.possibleKingMove(emptySqs.slice(0), piece.moves, piece.color, true);
  						console.log(pathsClear, "pathsClear");
  						if (cornerPiece.type == "rook" 
  							&& !cornerPiece.moved
@@ -698,23 +701,23 @@ console.log("THIS SHOULDNT BE HAPPENING");
  							&& emptySqs.length == 3) {
  							this.castle(piece,from,to,cornerPiece,fromRow+0,fromRow+3);
  							return true;
- 						}
+ 						} else { return false; }
  					} else {
  						// trying to castle right
  						cornerPiece = this.positions[fromRow + 7];
  						emptySqs = [fromRow + 6, fromRow + 5].filter(function(x) {
  							return !that.positions[x];
  						});
- 						pathsClear = this.possibleKingMove(emptySqs.slice(0), piece.moves, this.swap(piece.color), true);
+ 						pathsClear = this.possibleKingMove(emptySqs.slice(0), piece.moves, piece.color, true);
  						console.log(pathsClear, "pathsClear");
-
+// WHY IS THIS RETURNING 2???
  						if (cornerPiece.type == "rook"
  							&& !cornerPiece.moved
  							&& pathsClear.length == 2
  							&& emptySqs.length == 2) {
  							this.castle(piece,from,to,cornerPiece,fromRow+7,fromRow+5);
  							return true;
- 						}
+ 						}  else { return false; }
  					}
  					// if we can't return false;
  					return false;
