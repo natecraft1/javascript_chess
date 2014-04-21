@@ -260,11 +260,17 @@ console.log(that.check);
 								if (clearOfCheck && path
 									&& that.validMove(piece, that.selected, target)
 								) {
-									if (that.selected == that.checkPaths[that.swap(piece.color) + "PathHolder"]) { that.changePathHolder(that.swap(piece.color)) }
+									if (that.selected == that.checkPaths[that.swap(piece.color) + "PathHolder"]) { 
+										that.changePathHolder(that.swap(piece.color)) 
+									}
 									that.mobilize(piece.color, target);
 console.log(that.justCastled, "castle");
 									if (!that.justCastled) that.movePiece(target, targetEl);
-									that.setCheck(piece, target);
+									if (that.positions[target].type == "king") {
+										that.kingMoved(target, piece.color);
+									} else {
+										that.setCheck(piece, target);
+									}
 									that.turn(that.trn);
 console.log("immobile", that.immobile);
 									// if you make a valid move, and it's into one of the opps' path sqs
@@ -286,6 +292,13 @@ console.log("immobile", that.immobile);
 							this.trn = "white";
 						} 
 					}
+				}
+				Board.prototype.kingMoved = function(sq, color) {
+					this.checkPaths[color + "PathHolder"] = "";
+					this.checkPaths[color] = [];
+					this.immobile[color] = null;
+					this.check[color + "Escapes"] = [];
+					this.check[color] = false;
 				}
 				Board.prototype.changePathHolder = function(color) {
 					this.checkPaths[color] = [];
@@ -402,14 +415,12 @@ console.log(oppKing);
 							f = ~~oppKingSq[0] + oppKing.moves[i][0];
 							s = ~~oppKingSq[1] + oppKing.moves[i][1];
 						  combined = f + "" + s;
-console.log(combined);
 						  if (combined in this.positions) {
 						  	arr.push(combined);
 						  }
 						}
 						return arr;
 					}).call(this);
-console.log(surroundingSqs);
 					for (i = 0, len = surroundingSqs.length; i < len; i++) {
 						sq = surroundingSqs[i];
 						if (!this.positions[sq] || this.positions[sq].color !== opponent) {
@@ -420,7 +431,6 @@ console.log(surroundingSqs);
 					if (kingMoves.length > 0) {
 						this.check[opponent + "Escapes"] = kingMoves;
 					}
-console.log(kingMoves);
 					var canBeSaved = this.canBeSaved(opponent);
 					if (kingMoves.length || canBeSaved) { 
 						return false; 
@@ -499,7 +509,6 @@ console.log(kingMoves);
 					var validMoves = [];
 
 					// we have to walk all directions until we hit one of our own, an opponent, or to the end of the board
-console.log(sqs, "sqs", "moves", moves, "opp", opponent, castling, "CASTLING");
 					allSqs: for (i = 0, len = sqs.length; i < len; i++) {
 						f = ~~sqs[i][0], s = ~~sqs[i][1];
 						// check for knights
@@ -510,7 +519,6 @@ console.log(sqs, "sqs", "moves", moves, "opp", opponent, castling, "CASTLING");
 								&& this.positions[knt].color != opponent) {
 								// don't push
 								// don't push
-console.log("KNIGHT KNIGHT");
 								continue allSqs;
 							}
 						}
@@ -522,11 +530,9 @@ console.log("KNIGHT KNIGHT");
 								pawnMoves = [[1, -1], [1, 1]];
 							}
 							potentialPawnMove = (f + pawnMoves[p][0]) + "" + (s + pawnMoves[p][1]);
-console.log(potentialPawnMove, "potentialPawnMove")
 							if (this.positions[potentialPawnMove] 
 								&& this.positions[potentialPawnMove].type == "pawn"
 								&& this.positions[potentialPawnMove].color != opponent) {
-console.log("CALLED")
 								// don't push
 								// don't push
 								if (!castling) { 
@@ -535,24 +541,20 @@ console.log("CALLED")
 							}
 						}
 						allMoves:	for (j = 0, lngth = moves.length; j < lngth; j++) {
-							console.log(sqs[i]);
 							// conditions for break:
 							strMove = JSON.stringify(moves[j]);
 							ff = f, ss = s;
-							console.log(ff,ss);
 							// we reach the end of the board
 							while (ff+moves[j][0] <= 7 && ff+moves[j][0] >= 0 && ss+moves[j][1] <= 7 && ss+moves[j][1] >= 0) {
 								ff += moves[j][0];
 								ss += moves[j][1];
 								next = ff + "" + ss;
-console.log("next", next);
 								if (this.positions[next]) {
 									if (this.positions[next].color == opponent) {
 										// we hit our own piece
 										break;
 									} else {
 										if (JSON.stringify(this.positions[next].moves).indexOf(strMove) != -1) {
-console.log("indexof StrMove");
 											continue allSqs;
 											// we hit an opp piece that doesn't share the path
 										} 
