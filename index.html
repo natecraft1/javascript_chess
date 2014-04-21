@@ -260,8 +260,9 @@ console.log(that.check);
 								if (clearOfCheck && path
 									&& that.validMove(piece, that.selected, target)
 								) {
+									if (that.selected == that.checkPaths[that.swap(piece.color) + "PathHolder"]) { that.changePathHolder(that.swap(piece.color)) }
 									that.mobilize(piece.color, target);
-			
+console.log(that.justCastled, "castle");
 									if (!that.justCastled) that.movePiece(target, targetEl);
 									that.setCheck(piece, target);
 									that.turn(that.trn);
@@ -286,14 +287,15 @@ console.log("immobile", that.immobile);
 						} 
 					}
 				}
+				Board.prototype.changePathHolder = function(color) {
+					this.checkPaths[color] = [];
+					this.checkPaths[color + "PathHolder"] = "";
+				}
 				Board.prototype.mobilize = function(color, to) {
 					// if another piece moves into the path, there is no immobile piece
-					if (this.checkPaths[color].indexOf(to) != -1) {
+					if (this.checkPaths[color].indexOf(to) != -1 
+						|| this.checkPaths[color + "PathHolder"] == to) {
 						this.immobile[color] = null;
-					}
-					if (this.checkPaths[color + "PathHolder"] == to) {
-						this.immobile[color] = null;
-						this.immobile[color + "PathHolder"] = "";
 					}
 				}
 				Board.prototype.setCheck = function(piece, newSq) {
@@ -415,6 +417,9 @@ console.log(surroundingSqs);
 						} 
 					}
 					var kingMoves = this.possibleKingMove(possibleKingMoves, oppKing.moves, opponent);
+					if (kingMoves.length > 0) {
+						this.check[opponent + "Escapes"] = kingMoves;
+					}
 console.log(kingMoves);
 					var canBeSaved = this.canBeSaved(opponent);
 					if (kingMoves.length || canBeSaved) { 
@@ -489,11 +494,12 @@ console.log(kingMoves);
 				Board.prototype.possibleMove = function() {
 
 				}
-				Board.prototype.possibleKingMove = function(sqs, moves, opponent) {
+				Board.prototype.possibleKingMove = function(sqs, moves, opponent, castling) {
 					var i, len, k, lenth, knt, j, lngth, p, f, ff, s, ss, next, path, strMove, potentialPawnMove, pawnMoves;
 					var validMoves = [];
+
 					// we have to walk all directions until we hit one of our own, an opponent, or to the end of the board
-console.log(sqs, "sqs");
+console.log(sqs, "sqs", "moves", moves, "opp", opponent, castling, "CASTLING");
 					allSqs: for (i = 0, len = sqs.length; i < len; i++) {
 						f = ~~sqs[i][0], s = ~~sqs[i][1];
 						// check for knights
@@ -502,6 +508,9 @@ console.log(sqs, "sqs");
 							if (this.positions[knt] 
 								&& this.positions[knt].type == "knight" 
 								&& this.positions[knt].color != opponent) {
+								// don't push
+								// don't push
+console.log("KNIGHT KNIGHT");
 								continue allSqs;
 							}
 						}
@@ -516,10 +525,16 @@ console.log(sqs, "sqs");
 							if (this.positions[potentialPawnMove] 
 								&& this.positions[potentialPawnMove].type == "pawn"
 								&& this.positions[potentialPawnMove].color != opponent) {
-								continue allSqs;
+console.log("CALLED")
+								// don't push
+								// don't push
+								if (!castling) { 
+									continue allSqs;
+								}
 							}
 						}
 						allMoves:	for (j = 0, lngth = moves.length; j < lngth; j++) {
+							console.log(sqs[i]);
 							// conditions for break:
 							strMove = JSON.stringify(moves[j]);
 							ff = f, ss = s;
@@ -534,19 +549,19 @@ console.log(sqs, "sqs");
 										break;
 									} else {
 										if (JSON.stringify(this.positions[next].moves).indexOf(strMove) != -1) {
+console.log("indexof StrMove");
 											continue allSqs;
 											// we hit an opp piece that doesn't share the path
-										} else { continue allMoves; }
+										} 
 									}
 								}
 							}
 						}
 						// we found a free sq
+console.log("found a free sq");
 						validMoves.push(sqs[i]);
 					}
-					if (validMoves.length > 0) {
-						this.check[opponent + "Escapes"] = validMoves;
-					}
+					
 					return validMoves;
 				}
 				Board.prototype.movePiece = function(target, targetEl) {
@@ -571,9 +586,7 @@ console.log(sqs, "sqs");
 						} else {
 							return false;
 						}
-console.log("IM THE KING OF THE WOOOORLD")
-
-						
+console.log("IM THE KING OF THE WOOOORLD");
 					} else {
 						if (this.checkPaths[piece.color].indexOf(to) != -1 
 							|| this.checkPaths[piece.color + "PathHolder"] == to) {
@@ -635,34 +648,14 @@ console.log("THIS SHOULDNT BE HAPPENING");
  					} else {
  						// we are not a pawn
  						// check if we're a king that's trying to castle 
+
  						if (piece.type == "king" 
  							&& !piece.moved
  							&& JSON.stringify(piece.castleMoves).indexOf(desiredStr) != -1) { 
  							fromRow = from[0];
- 							if (desiredShift[1] < 0) {
- 								// trying to castle left
- 								cornerPiece = this.positions[fromRow + 0];
- 								if (cornerPiece.type == "rook" 
- 									&& !cornerPiece.moved
- 									&& !this.positions[fromRow + 1]
- 									&& !this.positions[fromRow + 2]
- 									&& !this.positions[fromRow + 3]) {
- 									this.castle(piece,from,to,cornerPiece,fromRow+0,fromRow+3);
- 									this.justCastled = true;
- 									return true;
- 								}
- 							} else {
- 								// trying to castle right
- 								cornerPiece = this.positions[fromRow + 7];
- 								if (cornerPiece.type == "rook"
- 									&& !cornerPiece.moved
- 									&& !this.positions[fromRow + 6]
- 									&& !this.positions[fromRow + 5]) {
-
- 									this.castle(piece,from,to,cornerPiece,fromRow+7,fromRow+5);
- 									this.justCastled = true;
- 									return true;
- 								}
+ 							if (this.canCastle(fromRow, desiredShift, piece, from, to)) {
+ 								this.justCastled = true;
+ 								return true;
  							}
 						}
 						if (piece.multiples && (Math.abs(desiredShift[0]) > 1 || Math.abs(desiredShift[1]) > 1)) {
@@ -687,6 +680,44 @@ console.log("THIS SHOULDNT BE HAPPENING");
  				}
  				Board.prototype.spotTaken = function(to) {
  					return this.positions[to] ?  true : false; 
+ 				}
+ 				Board.prototype.canCastle = function(fromRow, desiredShift, piece, from, to) {
+ 					var emptySqs, cornerPiece, pathsClear;
+ 					var that = this;
+ 					if (desiredShift[1] < 0) {
+ 						// trying to castle left
+ 						cornerPiece = this.positions[fromRow + 0];
+ 						emptySqs = [fromRow + 1, fromRow + 2, fromRow + 3].filter(function(x) {
+ 							return !that.positions[x];
+ 						});
+ 						pathsClear = this.possibleKingMove(emptySqs.slice(0), piece.moves, this.swap(piece.color), true);
+ 						console.log(pathsClear, "pathsClear");
+ 						if (cornerPiece.type == "rook" 
+ 							&& !cornerPiece.moved
+ 							&& pathsClear.length == 3
+ 							&& emptySqs.length == 3) {
+ 							this.castle(piece,from,to,cornerPiece,fromRow+0,fromRow+3);
+ 							return true;
+ 						}
+ 					} else {
+ 						// trying to castle right
+ 						cornerPiece = this.positions[fromRow + 7];
+ 						emptySqs = [fromRow + 6, fromRow + 5].filter(function(x) {
+ 							return !that.positions[x];
+ 						});
+ 						pathsClear = this.possibleKingMove(emptySqs.slice(0), piece.moves, this.swap(piece.color), true);
+ 						console.log(pathsClear, "pathsClear");
+
+ 						if (cornerPiece.type == "rook"
+ 							&& !cornerPiece.moved
+ 							&& pathsClear.length == 2
+ 							&& emptySqs.length == 2) {
+ 							this.castle(piece,from,to,cornerPiece,fromRow+7,fromRow+5);
+ 							return true;
+ 						}
+ 					}
+ 					// if we can't return false;
+ 					return false;
  				}
  				Board.prototype.castle = function(king, kFrom, kTo, rook, rFrom, rTo) {
  					this.kings[king.color] = kTo;
@@ -778,6 +809,7 @@ console.log("THIS SHOULDNT BE HAPPENING");
 						if (blockers.length == 1) this.immobilize(blockers[0], opponent);
 						return blockers.length > 0 ? blockers : false;
  					} else {
+console.log("HELLO WORLD");
  						return true;
  					}
  				}
