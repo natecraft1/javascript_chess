@@ -299,6 +299,37 @@ console.log("immobile", that.immobile);
 					this.immobile[color] = null;
 					this.check[color + "Escapes"] = [];
 					this.check[color] = false;
+					var i, len, direction, d1, d2, next, potentialPath;
+					var moves = this.positions[sq].moves;
+	        var f =	~~sq[0], s = ~~sq[1];
+
+					for (i = 0, len = moves.length; i < len; i++) {
+						ff = f, ss = s;
+console.log("ff", ff, "ss", ss);
+						direction = moves[i];
+						potentialPath = [];
+						d1 = direction[0], d2 = direction[1];
+						while (ff+d1 <= 7 && ff+d1 >= 0 && ss+d2 <= 7 && ss+d2 >= 0) {
+							ff += d1;
+							ss += d2;
+							next = ff + "" + ss;
+							if (this.positions[next]
+								&& this.positions[next].color != color
+								&& this.positions[next].multiples
+								&& JSON.stringify(this.positions[next].moves).indexOf(JSON.stringify(direction)) != -1) {
+								this.checkPaths[color] = potentialPath;
+								this.checkPaths[color + "PathHolder"] = next;
+								break;
+							} else if (this.positions[next]
+								&& this.positions[next].color != color 
+								&& !this.positions[next].multiples) {
+								break;
+							} else {
+								potentialPath.push(next);
+							}
+						}
+					}
+					console.log("KINGMOVED", this.checkPaths);
 				}
 				Board.prototype.changePathHolder = function(color) {
 					this.checkPaths[color] = [];
@@ -371,34 +402,36 @@ console.log("check please");
 					console.log("gg");
 				}
 				Board.prototype.checkOppPaths = function(from, to, color) {
+console.log("checkOppPaths called with", from, to, color);
 					var paths = this.checkPaths[color];
 					var pathholder = this.checkPaths[color + "PathHolder"];
 					var blockers = [];
 					// that.immobile[piece.color] != that.selected || target == that.checkPaths[piece.color + "PathHolder"];
-					if (paths.length > 0) {
+console.log(paths);
+					if (paths.length > 0 && paths.indexOf(from) != -1) {
+console.log("in the path")
 						// are we trying to move from or to the path?
-						if (paths.indexOf(from) != -1) {
 							// if we're trying to eat the pathholder, we'll let validmove handle it
-							if (pathholder == to) return true;
-							// allowed if there's another piece in the path - pathholder
-							for (i = 0, lngth = paths.length; i < lngth; i++) {
-								// check if there's another piece in the path that isn't the offending piece, or the piece we started with
-								if (this.positions[paths[i]] 
-									&& paths[i] != pathholder
-									&& paths[i] != from) {
-									blockers.push(paths[i]);
-								}
+						if (pathholder == to || this.checkPaths[color].indexOf(to) != -1) return true;
+						// allowed if there's another piece in the path - pathholder
+						for (i = 0, lngth = paths.length; i < lngth; i++) {
+							// check if there's another piece in the path that isn't the offending piece, or the piece we started with
+							if (this.positions[paths[i]] 
+								&& paths[i] != pathholder
+								&& paths[i] != from) {
+								blockers.push(paths[i]);
 							}
-							// didnt find something else in the path;
-							// we return false because you can't move from a sq if it will put u in check
-							if (blockers.length == 1) { 
-								this.immobilize(blockers[0], color) 
-							} else if (blockers.length > 1) {
-								return true;
-							} else {
-								return false;
-							}
-						} 
+						}
+						// didnt find something else in the path;
+						// we return false because you can't move from a sq if it will put u in check
+						if (blockers.length == 1) {
+							this.immobilize(blockers[0], color);
+							return true; 
+						} else if (blockers.length > 1) {
+							return true;
+						} else {
+							return false;
+						}
 					}
 					return true;
 				}
