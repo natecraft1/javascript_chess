@@ -20,10 +20,25 @@
 	.selected {
 		background: #F2D0C7;
 	}
+	#promotion_white {
+   visibility: hidden;
+   position: absolute;
+   background: white;
+   left: 0px;
+   top: 0px;
+   text-align:center;
+   z-index: 1000;
+	}
 </style>
 
 </head>
 <body>
+	<div id="promotion_white">
+		<img src="imgs/black_queen.png" alt="">
+		<img src="imgs/black_rook.png" alt="">
+		<img src="imgs/black_knight.png" alt="">
+		<img src="imgs/black_bishop.png" alt="">
+	</div>
 	<table id="board">
 		<tr>
 			<td></td>
@@ -264,25 +279,7 @@ console.log(dir, "dir");
 									}
 								}
 
-// 								if (piece.type == "king" && that.checkPathIndex(target, piece.color) != -1) {
-// 										var kingEnteringCheckPath = (function() {
-// 										var pHolder = that.checkPaths[piece.color + "PathHolder"];
-// 										var dist = that.distBtwnSqs(target, pHolder);
-// 										var d1 = Math.abs(dist[0]), d2 = Math.abs(dist[1]);
-// console.log("dist =", dist);
-// 										var dir =	that.validPieceDirection(piece, d1, d2, JSON.stringify(dist));
-// console.log(dir, "dir");
-// 										if (dir) {
-// 											if (that.clearPath(target, d1, d2, dir)) { return true; } else { return false; }
-// 										} else { return false; }
-// 									}).call(that);
-// 								}
-console.log(kingEnteringCheckPath, "kingEnteringCheckPath");
 
-// immobile if the piece we selected is immobile unless it's trying to eat the pathholder
-								// var mobile = that.immobile[piece.color] != that.selected || target == that.checkPaths[piece.color + "PathHolder"];
-console.log(that.checkPaths);
-console.log(that.check);
 								if (!that.check[piece.color]) {
 									clearOfCheck = true;
 								} else {
@@ -295,8 +292,14 @@ console.log(that.check);
 								) {
 									var whichPath = that.checkPaths[that.swap(piece.color) + "PathHolder"].indexOf(that.selected);
 									if (whichPath != -1) { that.changePathHolder(that.swap(piece.color), whichPath) };
-// DO WE NEED THIS METHOD?
-									// that.mobilize(piece.color, target);
+									// do we promote?
+									if (piece.type == "pawn") {
+										if (piece.color == "white" && target[0] == "0" 
+											|| piece.color == "black" && target[0] == "7") {
+											that.promote(piece.color, target);
+										} 
+									}
+
 									if (!that.justCastled) that.movePiece(target, targetEl);
 									if (that.positions[target].type == "king") {
 										that.kingMoved(target, piece.color);
@@ -323,6 +326,14 @@ console.log(that.check);
 						} 
 					}
 				}
+				Board.prototype.promote = function(color, sq) {
+					var modal = document.getElementById("promotion_" + color);
+					modal.onclick = function(e) {
+						console.log(e.target);
+					}
+					modal.style.visibility = "visible";
+
+				}
 				Board.prototype.kingMoved = function(sq, color) {
 					this.checkPaths[color + "PathHolder"] = [];
 					this.checkPaths[color] = [];
@@ -331,7 +342,7 @@ console.log(that.check);
 					this.check[color] = false;
 					var i, len, direction, d1, d2, next, potentialPath;
 					var moves = this.positions[sq].moves;
-	        var f =	~~sq[0], s = ~~sq[1];
+	        var f =	+sq[0], s = +sq[1];
 
 					for (i = 0, len = moves.length; i < len; i++) {
 						ff = f, ss = s;
@@ -394,19 +405,18 @@ console.log(that.check);
 						var potentialChecks = (function() {
 							var i, d1, d2, len, arr = [];
 							for (i = 0, len = checkMoves.length; i < len; i++) {
-								d1 = ~~newSq[0] + checkMoves[i][0];
-								d2 = ~~newSq[1] + checkMoves[i][1];
+								d1 = +newSq[0] + checkMoves[i][0];
+								d2 = +newSq[1] + checkMoves[i][1];
 								arr.push(d1 + "" + d2);
 							}
 							return arr;
 						})();
 // POTENTIAL REFACTOR BC THIS LOGIC IS BEING REPEATED IN THE ELSE STATEMENT AS WELL 
 						var check = potentialChecks.indexOf(oppKingSq) == -1 ? false : true;
-						if (oppInCheck != check) { 
-							this.check[opponent] = check; 
-						}
+						this.check[opponent] = check; 
 						if (this.check[opponent]) { 
-							if (!this.checkMate(opponent)) {
+							this.checkPaths[opponent + "PathHolder"].push(newSq);
+							if (!this.checkMate(opponent, newSq)) {
 
 							} else {
 								this.gameOver();
@@ -415,7 +425,7 @@ console.log(that.check);
 					} else {
 						// not a knight or pawn
 						// first check if it's possible
-						distFromKing = [~~oppKingSq[0] - ~~newSq[0], ~~oppKingSq[1] - ~~ newSq[1]];
+						distFromKing = [+oppKingSq[0] - +newSq[0], +oppKingSq[1] - + newSq[1]];
 						if (this.validDirection(distFromKing)) {
 							// it's possible that the opp is in check
 							// if it's not impeded opp is in check
@@ -424,7 +434,7 @@ console.log(that.check);
 							}
 							this.check[opponent] = !pathBlocked;
 							if (!pathBlocked) { 
-								if (!this.checkMate(opponent, distFromKing, newSq)) {
+								if (!this.checkMate(opponent, newSq, distFromKing)) {
 								} else {
 									this.gameOver();
 								}
@@ -479,7 +489,8 @@ console.log("blockers", blockers);
 					}
 					return true;
 				}
-				Board.prototype.checkMate = function(opponent, distFromKing, attackingSq) {
+				Board.prototype.checkMate = function(opponent, attackingSq, distFromKing) {
+console.log("attackingSq", attackingSq);
 					var i, len, sq;
 					var oppKingSq = this.kings[opponent];
 					var oppKing = this.positions[oppKingSq];
@@ -488,8 +499,8 @@ console.log("blockers", blockers);
 						var arr = [];
 						var i, len, f, s, combined;
 						for (i = 0, len = oppKing.moves.length; i<len; i++) {
-							f = ~~oppKingSq[0] + oppKing.moves[i][0];
-							s = ~~oppKingSq[1] + oppKing.moves[i][1];
+							f = +oppKingSq[0] + oppKing.moves[i][0];
+							s = +oppKingSq[1] + oppKing.moves[i][1];
 						  combined = f + "" + s;
 						  if (combined in this.positions) {
 						  	arr.push(combined);
@@ -504,15 +515,14 @@ console.log("blockers", blockers);
 						} 
 					}
 					var kingMoves = this.possibleKingMove(possibleKingMoves, oppKing.moves, opponent);
+console.log(kingMoves, "kingMoves");
 					if (kingMoves.length > 0) {
 						this.check[opponent + "Escapes"] = kingMoves;
-					}
-					var canBeSaved = this.canBeSaved(opponent, attackingSq);
-					if (kingMoves.length || canBeSaved) { 
-						return false; 
-					} else {
-						return true;
-					}
+						return false;
+					} else if (this.canBeSaved(opponent, attackingSq)) {
+						return false;
+					} else { return true; }
+			
 				}
 				Board.prototype.swap = function(color) {
 					return color == "white" ? "black" : "white";
@@ -521,7 +531,10 @@ console.log("blockers", blockers);
 					// here we check if ANY of the opps pieces can move to one of our checkPath sqs
 					var i, p, lth, len, dist, direction, j, lngth, moves, moveTo, piece, l, z, pFirstMove, pEatMove, pForwardMove;
 					var pathInd = this.checkPathIndex(attackingSq, color);
-					var resqueSqs = this.checkPaths[color][pathInd];
+					var resqueSqs = pathInd == -1 ? [attackingSq] : this.checkPaths[color][pathInd].slice(0).push(attackingSq);
+
+					console.log("resqueSqs", this.checkPaths[color], pathInd, attackingSq);
+
 					for (var sqr in this.positions) {
 						piece = this.positions[sqr];
 						if (piece && piece.color == color) {
@@ -541,7 +554,7 @@ console.log("blockers", blockers);
 							} else if (piece.type == "knight") {
 								moves = piece.moves;
 								for (j = 0, lngth = moves.length; j < lngth; j++) {
-									moveTo = (~~sqr[0] + moves[j][0]) + "" + (~~sqr[1] + moves[j][1]);
+									moveTo = (+sqr[0] + moves[j][0]) + "" + (+sqr[1] + moves[j][1]);
 									if (resqueSqs.indexOf(moveTo) != -1) {
 										return true;
 									}
@@ -549,7 +562,7 @@ console.log("blockers", blockers);
 							} else {
 								// we're a pawn
 								for (l = 0; l < piece.eat.length; l++) {
-									pEatMove = (~~sqr[0] + piece.eat[l][0]) + "" + (~~sqr[1] + piece.eat[l][1]);
+									pEatMove = (+sqr[0] + piece.eat[l][0]) + "" + (+sqr[1] + piece.eat[l][1]);
 									if (this.checkPaths[color + "PathHolder"][pathInd] == pEatMove) {
 										return true;
 									}
@@ -569,30 +582,30 @@ console.log("blockers", blockers);
 				}
 				Board.prototype.pawnLegalMoves = function(sqr, move, color) {
 					var mv;
-					mv = (~~sqr[0] + move[0]) + "" + (~~sqr[1] + move[1]);
+					mv = (+sqr[0] + move[0]) + "" + (+sqr[1] + move[1]);
 					if (this.checkPathIndex(sqr, color) != -1) {
 						return true;
 					} 
 				}
 				Board.prototype.distBtwnSqs = function(from, to) {
 					// takes 2 sqs and returns an array of the shift we're trying to make
-					return [~~to[0] - ~~from[0], ~~to[1] - ~~from[1]]
+					return [+to[0] - +from[0], +to[1] - +from[1]]
 				}
 
 				Board.prototype.possibleKingMove = function(sqs, moves, opponent, castling) {
 					var i, len, k, lenth, knt, j, lngth, p, f, ff, s, ss, next, path, strMove, potentialPawnMove, pawnMoves;
 					var validMoves = [];
+console.log("possibleKingMove", sqs);
 
 					// we have to walk all directions until we hit one of our own, an opponent, or to the end of the board
 					allSqs: for (i = 0, len = sqs.length; i < len; i++) {
-						f = ~~sqs[i][0], s = ~~sqs[i][1];
+						f = +sqs[i][0], s = +sqs[i][1];
 						// check for knights
-						for (k = 0, length = this.knightMoves.length; k < lenth; k++) {
+						for (k = 0, lenth = this.knightMoves.length; k < lenth; k++) {
 							knt = (f + this.knightMoves[k][0]) + "" + (s + this.knightMoves[k][1]); 
 							if (this.positions[knt] 
 								&& this.positions[knt].type == "knight" 
 								&& this.positions[knt].color != opponent) {
-								// don't push
 								// don't push
 								continue allSqs;
 							}
@@ -608,7 +621,6 @@ console.log("blockers", blockers);
 							if (this.positions[potentialPawnMove] 
 								&& this.positions[potentialPawnMove].type == "pawn"
 								&& this.positions[potentialPawnMove].color != opponent) {
-								// don't push
 								// don't push
 								if (!castling) { 
 									continue allSqs;
@@ -630,9 +642,10 @@ console.log("blockers", blockers);
 										break;
 									} else {
 										if (JSON.stringify(this.positions[next].moves).indexOf(strMove) != -1) {
+											console.log("CONTINUING");
 											continue allSqs;
 											// we hit an opp piece that doesn't share the path
-										} 
+										} else { break; }
 									}
 								}
 							}
@@ -871,7 +884,7 @@ console.log(JSON.stringify([piece.moves[i][0] * r, piece.moves[i][1] * c]));
 					}
  				}
  				Board.prototype.clearPath = function(from, r, c, direction) {
- 					var startArr = [~~from[0],~~from[1]];
+ 					var startArr = [+from[0],+from[1]];
  					var j;
 					for (j = 0; j < (Math.max(r,c)-1); j++) {
 // this seems sketchy to update startArr (contender for refactor)
@@ -890,7 +903,7 @@ console.log(JSON.stringify([piece.moves[i][0] * r, piece.moves[i][1] * c]));
  					var non_zero, direction, inBtwnSq, r, c, i, j, len, startArr, inBtwnSqs;
  					var blockers = [];
  				// 	r = Math.abs(desiredShift[0]), c = Math.abs(desiredShift[1]);
- 					startArr = [~~from[0],~~from[1]];
+ 					startArr = [+from[0],+from[1]];
  					r = Math.abs(desiredShift[0]), c = Math.abs(desiredShift[1]);
 
 					// does one of our available moves match the desired move?
