@@ -312,13 +312,13 @@
 							targetEl.className += " selected";
 						}
 					}	
-					this.turn = function(color) {
-						if (color == "white") {
-							this.trn = "black";
-						} else {
-							this.trn = "white";
-						} 
-					}
+				}
+				Board.prototype.turn = function(color) {
+					if (color == "white") {
+						this.trn = "black";
+					} else {
+						this.trn = "white";
+					} 
 				}
 				Board.prototype.promote = function(color, sq, targetEl) {
 					console.log("PROMOTE CALLED");
@@ -331,11 +331,9 @@
 						var p = that.pieces[e.target.getAttribute("data-piece")];
 						// we do this because movePiece is going to copy this img
 						that.selectedEl.children[0].src = p.srcs[colorInd];
-console.log(that.selectedEl);
 						pProperties = {"type": p.type, "square": sq, "color": color, "src": p.srcs[colorInd]};
 						var newPiece = new Piece(pProperties);
 						that.positions[this.selected] = newPiece;
-console.log(that.positions[this.selected]);
 						if (!that.justCastled) that.movePiece(sq, targetEl);
 					}
 				}
