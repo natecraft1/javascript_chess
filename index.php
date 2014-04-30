@@ -4,7 +4,6 @@
 function pg_connection_string() {
   // we will fill this out next
 }
- 
 # Establish db connection
 $db = pg_connect(pg_connection_string());
 if (!$db) {
