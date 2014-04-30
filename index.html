@@ -262,19 +262,17 @@
 // if we're in check we need to check for both validmoveincheck as well as valid move, else, just validmove
 								var path = that.checkOppPaths(that.selected, target, piece.color);
 								
-								if (piece.type == "king") {
-									var ind = that.checkPathIndex(target, piece.color);
-									if (ind != -1) {
-										var kingEnteringCheckPath = (function() {
-										var pHolder = that.checkPaths[piece.color + "PathHolder"][ind];
-										var dist = that.distBtwnSqs(target, pHolder);
-										var d1 = Math.abs(dist[0]), d2 = Math.abs(dist[1]);
-										var dir =	that.validPieceDirection(piece, d1, d2, JSON.stringify(dist));
-										if (dir) {
-											if (that.clearPath(target, d1, d2, dir)) { return true; } else { return false; }
-										} else { return false; }
-										}).call(that);
-									}
+								var ind = that.checkPathIndex(target, piece.color);
+								if (piece.type == "king" && ind != -1) {
+									var kingEnteringCheckPath = (function() {
+									var pHolder = that.checkPaths[piece.color + "PathHolder"][ind];
+									var dist = that.distBtwnSqs(target, pHolder);
+									var d1 = Math.abs(dist[0]), d2 = Math.abs(dist[1]);
+									var dir =	that.validPieceDirection(piece, d1, d2, JSON.stringify(dist));
+									if (dir) {
+										if (that.clearPath(target, d1, d2, dir)) { return true; } else { return false; }
+									} else { return false; }
+									}).call(that);
 								}
 								if (!that.check[piece.color]) {
 									clearOfCheck = true;
@@ -293,16 +291,18 @@
 										&& piece.color == "white" && target[0] == "0" 
 										|| piece.color == "black" && target[0] == "7") {
 										that.promote(piece.color, target, targetEl);
-									} 
-									if (!that.justCastled) that.movePiece(target, targetEl);
-									if (that.positions[target].type == "king") {
-										that.kingMoved(target, piece.color);
 									} else {
-										that.setCheck(piece, target, that.selected);
+										if (!that.justCastled) that.movePiece(target, targetEl);
+										if (piece.type == "king") {
+											that.kingMoved(target, piece.color);
+											that.kings[piece.color] = target;
+										} else {
+											that.setCheck(piece, target, that.selected);
+										}
+										that.turn(that.trn);
 									}
-									that.turn(that.trn);
+									
 									// if you make a valid move, and it's into one of the opps' path sqs
-									if (piece.type == "king") that.kings[piece.color] = target;
 								}
 							}
 						} else if (that.positions[target] && that.positions[target].color == that.trn) {
@@ -329,13 +329,14 @@
 					modal.onclick = function(e) {
 						modal.style.visibility = "hidden";
 						var p = that.pieces[e.target.getAttribute("data-piece")];
+						// we do this because movePiece is going to copy this img
+						that.selectedEl.children[0].src = p.srcs[colorInd];
+console.log(that.selectedEl);
 						pProperties = {"type": p.type, "square": sq, "color": color, "src": p.srcs[colorInd]};
 						var newPiece = new Piece(pProperties);
-						that.positions[sq] = newPiece;
-						var img = document.createElement("img");
-						img.src = p.srcs[colorInd];
-						targetEl.innerHTML = "";
-						targetEl.appendChild(img);
+						that.positions[this.selected] = newPiece;
+console.log(that.positions[this.selected]);
+						if (!that.justCastled) that.movePiece(sq, targetEl);
 					}
 				}
 				Board.prototype.kingMoved = function(sq, color) {
@@ -645,15 +646,15 @@ console.log("SETCHECK CALLED");
 						}
 						// we found a free sq
 						validMoves.push(sqs[i]);
-					}
-					
+					}					
 					return validMoves;
 				}
 				Board.prototype.movePiece = function(target, targetEl) {
 console.log("MOVE PIECE CALLED");
+					// we want to remove the selectedEl, 
 					// moves the elements
 					var html = this.selectedEl.innerHTML;
-					this.selectedEl.innerHTML = "";
+					this.selectedEl.innerHTML = ""; 
 					targetEl.innerHTML = html;
 					// remove selected class
 					this.selectedEl.className = this.selectedEl.className.replace("selected", "");
