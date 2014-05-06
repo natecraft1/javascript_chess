@@ -46,11 +46,9 @@ function Board() {
 			if (clearOfCheck && path && !kingEnteringCheckPath
 				&& that.validMove(piece, that.selected, target)
 			) {
-				var whichPath = that.checkPaths[that.swap(piece.color) + "PathHolder"].indexOf(that.selected);
-				if (whichPath != -1) { that.changePathHolder(that.swap(piece.color), whichPath) };
-				if (piece.type == "pawn" 
-					&& piece.color == "white" && target[0] == "0" 
-					|| piece.color == "black" && target[0] == "7") {
+				that.movedPathHolder(that.swap(piece.color));
+				
+				if (that.pawnPromotion(piece, target)) {
 					that.promote(piece.color, target, targetEl);
 				} else {
 					if (!that.justCastled) that.movePiece(target, targetEl);
@@ -62,11 +60,21 @@ function Board() {
 					}
 					that.turn(that.trn);
 				}
+				console.log(that.checkPaths);
 				// if you make a valid move, and it's into one of the opps' path sqs
 			}
 		} 
 	}	
 }
+	Board.prototype.pawnPromotion = function(piece, target) {
+		return piece.type == "pawn" 
+				&& piece.color == "white" && target[0] == "0" 
+				|| piece.color == "black" && target[0] == "7";
+	}
+	Board.prototype.movedPathHolder = function(color) {
+		var path = this.checkPaths[color + "PathHolder"].indexOf(this.selected);
+		if (path != -1) { this.changePathHolder(color, path) };
+	}
 	Board.prototype.clearOfCheck = function(piece, target) {
 		if (!this.check[piece.color]) {
 			return true;
@@ -132,7 +140,7 @@ function Board() {
 				if (this.positions[next]
 					&& this.positions[next].color != color
 					&& this.positions[next].multiples
-					&& JSON.stringify(this.positions[next].moves).indexOf(JSON.stringify(direction)) != -1) {
+					&& this.hasMove(this.positions[next].moves, JSON.stringify(direction))) {
 					this.checkPaths[color].push(potentialPath);
 					this.checkPaths[color + "PathHolder"].push(next);
 					break;
